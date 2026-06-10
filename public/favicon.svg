@@ -1,0 +1,9 @@
+<!-- デフォルトファビコン（SVG形式、シンプルな農場のアイコン） -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="#22543D" rx="8"></rect>
+  <path d="M16 20 L16 44 L48 44 L48 20 Z" fill="#4CAF50" />
+  <path d="M12 52 L52 52 L52 44 L12 44 Z" fill="#8B5A2B" />
+  <path d="M20 20 L20 36 L28 36 L28 20 Z" fill="#3D8E40" />
+  <path d="M36 20 L36 36 L44 36 L44 20 Z" fill="#3D8E40" />
+  <path d="M32 12 L20 20 L44 20 Z" fill="#3D8E40" />
+</svg>

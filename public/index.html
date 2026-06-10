@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#22543D" />
+    <meta
+      name="description"
+      content="西農圃場データ - スマート農業の実現"
+    />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>西農圃場データ</title>
+    <style>
+      /* サポートバナーを非表示にするためのスタイル */
+      .support-banner, 
+      .support-widget, 
+      div[id*="support"], 
+      div[class*="support"],
+      .support-container,
+      [role="complementary"],
+      div[class*="サポート"],
+      div:has(> [id*="support"]),
+      div:has(> [class*="support"]),
+      div:has(text="サポートが必要ですか？") { 
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        position: absolute !important;
+        left: -9999px !important;
+      }
+      
+      /* モバイル向け最適化スタイル */
+      html, body {
+        overscroll-behavior: none; /* バウンス効果を防止 */
+        -webkit-tap-highlight-color: transparent; /* タップ時のハイライトを消す */
+      }
+      
+      /* ズーム禁止（ピンチジェスチャーが別の目的で必要な場合を除く） */
+      body {
+        touch-action: pan-x pan-y;
+      }
+      
+      /* 長押しのハイライトを防止 */
+      * {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      
+      /* 入力フィールドなどでは選択可能にする */
+      input, textarea, [contenteditable="true"] {
+        -webkit-user-select: auto;
+        -khtml-user-select: auto;
+        -moz-user-select: auto;
+        -ms-user-select: auto;
+        user-select: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>このアプリを実行するには、JavaScriptを有効にする必要があります。</noscript>
+    <div id="root"></div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-analytics.js";
+      // TODO: Add SDKs for Firebase products that you want to use
+      // https://firebase.google.com/docs/web/setup#available-libraries
+
+      // Your web app's Firebase configuration
+      // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+      const firebaseConfig = {
+        apiKey: "AIzaSyAHduV83j0eSdJQIvUGRqmmyN6sH0b4L0k",
+        authDomain: "farm-dashboard-95875.firebaseapp.com",
+        projectId: "farm-dashboard-95875",
+        storageBucket: "farm-dashboard-95875.firebasestorage.app",
+        messagingSenderId: "507957938975",
+        appId: "1:507957938975:web:cbc8d00dcfb870dc26be2a",
+        measurementId: "G-NJ273N51QZ"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      
+      // サポートバナーを非表示にするスクリプト
+      document.addEventListener('DOMContentLoaded', function() {
+        function hideSupportBanners() {
+          const elements = document.querySelectorAll('div, section, aside');
+          elements.forEach(el => {
+            if (
+              el.textContent.includes('サポート') || 
+              el.textContent.includes('support') ||
+              el.textContent.includes('お問い合わせ')
+            ) {
+              if (el.textContent.includes('サポートが必要ですか') || el.textContent.includes('質問やサポート')) {
+                el.style.display = 'none';
+                el.style.visibility = 'hidden';
+                el.style.position = 'absolute';
+                el.style.left = '-9999px';
+              }
+            }
+          });
+        }
+
+        // 初回実行
+        setTimeout(hideSupportBanners, 500);
+        // 定期的に実行
+        setInterval(hideSupportBanners, 1000);
+        
+        // タッチイベントの最適化
+        document.addEventListener('touchstart', function(e) {
+          // タッチ開始時に不要なイベントをキャンセル
+          if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }, { passive: true });
+        
+        // タッチ操作の高速化
+        document.addEventListener('touchmove', function(e) {
+          // スクロール操作は防止しない
+        }, { passive: true });
+        
+        // ダブルタップによるズームを防止
+        let lastTap = 0;
+        document.addEventListener('touchend', function(e) {
+          const currentTime = new Date().getTime();
+          const tapLength = currentTime - lastTap;
+          if (tapLength < 500 && tapLength > 0) {
+            e.preventDefault();
+          }
+          lastTap = currentTime;
+        });
+        
+        // Service Workerはindex.jsで登録されるため、ここでの登録は不要
+      });
+    </script>
+  </body>
+</html>

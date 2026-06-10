@@ -1,0 +1,49 @@
+import React, { useState, useEffect } from 'react';
+import { PlusCircle, Loader2, AlertCircle } from 'lucide-react';
+
+// コンポーネントのインポート
+import CropsTable from '../components/crops/CropsTable';
+import CropsFilter from '../components/crops/CropsFilter';
+import AddCropModal from '../components/crops/AddCropModal';
+import EditCropModal from '../components/crops/EditCropModal';
+import DeleteCropModal from '../components/crops/DeleteCropModal';
+import ViewCropModal from '../components/crops/ViewCropModal';
+
+// Firestoreユーティリティをインポート
+import { 
+  getAllCrops, 
+  getHousesByCrop,
+  addCrop,
+  updateCrop,
+  deleteCrop,
+  formatFirestoreData 
+} from '../firestoreUtils';
+
+const Crops = () => {
+  // 状態の初期化
+  const [crops, setCrops] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filterText, setFilterText] = useState('');
+  const [seasonFilter, setSeasonFilter] = useState('');
+  const [cropHouses, setCropHouses] = useState({});
+  const [availableSeasons, setAvailableSeasons] = useState([]);
+  
+  // モーダル関連の状態
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedCrop, setSelectedCrop] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    season: '',
+    growthDays: 0,
+    avgYield: '',
+    optimalTemperature: { min: 18, max: 25 },
+    optimalHumidity: { min: 50, max: 70 },
+    optimalSoilMoisture: { min: 60, max: 80 },
+    optimalLight: { min: 10000, max: 30000 },
+    optimalCO2: { min: 800, max: 1200 },
+    description: ''
+  });

@@ -1,0 +1,678 @@
+import React, { useState, useEffect } from 'react';
+import { PlusCircle, Loader2, AlertCircle, Info, Edit, Trash2, BarChart2 } from 'lucide-react';
+
+// Firestoreユーティリティをインポート
+import { 
+  getAllCrops, 
+  getHousesByCrop,
+  addCrop,
+  updateCrop,
+  deleteCrop,
+  getCropYieldHistory,
+  formatFirestoreData 
+} from '../firestoreUtils';
+
+const Crops = () => {
+  // 状態の初期化
+  const [crops, setCrops] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filterText, setFilterText] = useState('');
+  const [seasonFilter, setSeasonFilter] = useState('');
+  const [cropHouses, setCropHouses] = useState({});
+  const [availableSeasons, setAvailableSeasons] = useState([]);
+  
+  // モーダル関連の状態
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedCrop, setSelectedCrop] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    season: '',
+    growthDays: 0,
+    avgYield: '',
+    optimalTemperature: { min: 18, max: 25 },
+    optimalHumidity: { min: 50, max: 70 },
+    optimalSoilMoisture: { min: 60, max: 80 },
+    optimalLight: { min: 10000, max: 30000 },
+    optimalCO2: { min: 800, max: 1200 },
+    description: ''
+  });
+  
+  // フォームハンドラー
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    // ネストされたプロパティの更新（適温など）
+    if (name.includes('.')) {
+      const [parentProp, childProp] = name.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [parentProp]: {
+          ...prev[parentProp],
+          [childProp]: Number(value)
+        }
+      }));
+    } else if (name === 'growthDays') {
+      // 数値型のフィールド
+      setFormData(prev => ({
+        ...prev,
+        [name]: Number(value)
+      }));
+    } else {
+      // 通常のフィールド
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  // メインレンダリング
+  return (
+    <div className="container px-4 py-8 mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">作物管理</h1>
+        <button
+          onClick={handleOpenAddModal}
+          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <PlusCircle className="w-5 h-5 mr-2" />
+          新規作物追加
+        </button>
+      </div>
+      
+      {/* フィルターセクション */}
+      <div className="flex flex-wrap gap-4 mb-6">
+        <div className="flex-1 min-w-[300px]">
+          <input
+            type="text"
+            placeholder="作物名で検索..."
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+          />
+        </div>
+        <div className="w-full sm:w-auto">
+          <select
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            value={seasonFilter}
+            onChange={(e) => setSeasonFilter(e.target.value)}
+          >
+            <option value="">全てのシーズン</option>
+            {availableSeasons.map(season => (
+              <option key={season} value={season}>{season}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      
+      {/* エラー表示 */}
+      {error && (
+        <div className="p-4 mb-6 bg-red-100 border-l-4 border-red-500 rounded-md">
+          <div className="flex items-center">
+            <AlertCircle className="w-6 h-6 mr-2 text-red-500" />
+            <p className="text-red-700">{error}</p>
+          </div>
+        </>
+      )}
+      
+      {/* 追加モーダル */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-medium">新規作物追加</h3>
+            </div>
+            <form onSubmit={handleAddCrop}>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">作物名</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">シーズン</label>
+                  <input
+                    type="text"
+                    name="season"
+                    value={formData.season}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    placeholder="春, 夏, 秋, 冬, または組み合わせ"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">生育日数</label>
+                  <input
+                    type="number"
+                    name="growthDays"
+                    value={formData.growthDays}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">平均収量</label>
+                  <input
+                    type="text"
+                    name="avgYield"
+                    value={formData.avgYield}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    placeholder="例: 10kg/㎡"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">適温範囲 (℃)</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      name="optimalTemperature.min"
+                      value={formData.optimalTemperature.min}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      placeholder="最小"
+                    />
+                    <span className="mt-1 flex items-center">〜</span>
+                    <input
+                      type="number"
+                      name="optimalTemperature.max"
+                      value={formData.optimalTemperature.max}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      placeholder="最大"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">備考</label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    rows="3"
+                  ></textarea>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+                >
+                  追加
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {/* 編集モーダル */}
+      {isEditModalOpen && selectedCrop && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-medium">作物編集: {selectedCrop.name}</h3>
+            </div>
+            <form onSubmit={handleUpdateCrop}>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">作物名</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">シーズン</label>
+                  <input
+                    type="text"
+                    name="season"
+                    value={formData.season}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">生育日数</label>
+                  <input
+                    type="number"
+                    name="growthDays"
+                    value={formData.growthDays}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">平均収量</label>
+                  <input
+                    type="text"
+                    name="avgYield"
+                    value={formData.avgYield}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">備考</label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    rows="3"
+                  ></textarea>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700"
+                >
+                  更新
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {/* 削除確認モーダル */}
+      {isDeleteModalOpen && selectedCrop && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-medium">作物削除の確認</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700">本当に「{selectedCrop.name}」を削除しますか？</p>
+              <p className="mt-2 text-sm text-red-600">この操作は元に戻せません。</p>
+            </div>
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCrop}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
+              >
+                削除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 詳細表示モーダル */}
+      {isViewModalOpen && selectedCrop && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-medium">{selectedCrop.name}</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">シーズン</h4>
+                <p className="mt-1">{selectedCrop.season || 'なし'}</p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">生育日数</h4>
+                <p className="mt-1">{selectedCrop.growthDays} 日</p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">平均収量</h4>
+                <p className="mt-1">{selectedCrop.avgYield || 'なし'}</p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">現在の栽培ハウス</h4>
+                <p className="mt-1">
+                  {cropHouses[selectedCrop.id] && cropHouses[selectedCrop.id].length > 0 
+                    ? cropHouses[selectedCrop.id].join(', ')
+                    : 'なし'}
+                </p>
+              </div>
+              {selectedCrop.optimalTemperature && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">適温範囲</h4>
+                  <p className="mt-1">{selectedCrop.optimalTemperature.min}°C 〜 {selectedCrop.optimalTemperature.max}°C</p>
+                </div>
+              )}
+              {selectedCrop.description && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">備考</h4>
+                  <p className="mt-1 whitespace-pre-line">{selectedCrop.description}</p>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsViewModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Crops;        </div>
+      )}
+      
+      {/* 読み込み中表示 */}
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="w-8 h-8 text-green-600 animate-spin" />
+          <span className="ml-2 text-gray-600">データを読み込み中...</span>
+        </div>
+      ) : (
+        <>
+          {/* データテーブル */}
+          <div className="overflow-x-auto bg-white rounded-lg shadow">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">作物名</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">シーズン</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">生育日数</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">平均収量</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">現在のハウス</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">アクション</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredCrops.length > 0 ? (
+                  filteredCrops.map((crop) => (
+                    <tr key={crop.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="text-sm font-medium text-gray-900">{crop.name}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                          {crop.season}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {crop.growthDays} 日
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {crop.avgYield}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {cropHouses[crop.id] && cropHouses[crop.id].length > 0 ? (
+                          <span>{cropHouses[crop.id].join(', ')}</span>
+                        ) : (
+                          <span className="text-gray-400">なし</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        <div className="flex justify-center space-x-2">
+                          <button
+                            onClick={() => handleOpenViewModal(crop)}
+                            className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                            title="詳細を表示"
+                          >
+                            <Info className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditModal(crop)}
+                            className="p-1 text-yellow-600 hover:text-yellow-800 transition-colors"
+                            title="編集"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenDeleteModal(crop)}
+                            className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                            title="削除"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                      条件に一致する作物が見つかりません
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+  
+  // モーダル操作ハンドラー
+  const handleOpenAddModal = () => {
+    // フォームデータをリセット
+    setFormData({
+      name: '',
+      season: '',
+      growthDays: 0,
+      avgYield: '',
+      optimalTemperature: { min: 18, max: 25 },
+      optimalHumidity: { min: 50, max: 70 },
+      optimalSoilMoisture: { min: 60, max: 80 },
+      optimalLight: { min: 10000, max: 30000 },
+      optimalCO2: { min: 800, max: 1200 },
+      description: ''
+    });
+    setIsAddModalOpen(true);
+  };
+  
+  const handleOpenEditModal = (crop) => {
+    setSelectedCrop(crop);
+    setFormData({
+      name: crop.name,
+      season: crop.season,
+      growthDays: crop.growthDays,
+      avgYield: crop.avgYield,
+      optimalTemperature: crop.optimalTemperature || { min: 18, max: 25 },
+      optimalHumidity: crop.optimalHumidity || { min: 50, max: 70 },
+      optimalSoilMoisture: crop.optimalSoilMoisture || { min: 60, max: 80 },
+      optimalLight: crop.optimalLight || { min: 10000, max: 30000 },
+      optimalCO2: crop.optimalCO2 || { min: 800, max: 1200 },
+      description: crop.description || ''
+    });
+    setIsEditModalOpen(true);
+  };
+  
+  const handleOpenDeleteModal = (crop) => {
+    setSelectedCrop(crop);
+    setIsDeleteModalOpen(true);
+  };
+  
+  const handleOpenViewModal = (crop) => {
+    setSelectedCrop(crop);
+    setIsViewModalOpen(true);
+  };
+
+  // Firestoreからデータを取得
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // 作物情報を取得
+        const cropsData = await getAllCrops();
+        
+        if (cropsData && cropsData.length > 0) {
+          const formattedCrops = cropsData.map(crop => formatFirestoreData(crop));
+          setCrops(formattedCrops);
+          
+          // 利用可能な栽培シーズンのリストを作成
+          const seasons = [...new Set(formattedCrops.map(crop => crop.season))].filter(Boolean);
+          setAvailableSeasons(seasons);
+          
+          // 各作物が栽培されているハウスを取得
+          const housesData = {};
+          
+          await Promise.all(formattedCrops.map(async (crop) => {
+            try {
+              const houses = await getHousesByCrop(crop.id);
+              housesData[crop.id] = houses.map(house => house.id);
+            } catch (cropError) {
+              console.error(`作物 ${crop.id} のハウスデータ取得エラー:`, cropError);
+            }
+          }));
+          
+          setCropHouses(housesData);
+        } else {
+          // データが存在しない場合はダミーデータを使用
+          const dummyCrops = [
+            { id: 1, name: '長期ミニトマト R6', season: '春-夏', growthDays: 90, avgYield: '15kg/㎡', currentHouses: ['温室ハウス1'] },
+            { id: 2, name: '葉レタス サンチュ', season: '秋-冬', growthDays: 45, avgYield: '5kg/㎡', currentHouses: ['温室ハウス4'] },
+            { id: 3, name: 'キュウリ 夏すずみ', season: '夏', growthDays: 60, avgYield: '10kg/㎡', currentHouses: ['温室ハウス2'] },
+            { id: 4, name: 'パプリカ オレンジ', season: '春-夏', growthDays: 120, avgYield: '8kg/㎡', currentHouses: ['温室ハウス3'] },
+            { id: 5, name: 'ナス 黒真珠', season: '夏', growthDays: 80, avgYield: '12kg/㎡', currentHouses: ['温室ハウス5'] },
+            { id: 6, name: 'イチゴ あまおう', season: '冬-春', growthDays: 150, avgYield: '6kg/㎡', currentHouses: [] },
+            { id: 7, name: 'メロン アンデス', season: '夏', growthDays: 100, avgYield: '4kg/㎡', currentHouses: [] },
+            { id: 8, name: 'スイカ 夏小町', season: '夏', growthDays: 90, avgYield: '9kg/㎡', currentHouses: [] }
+          ];
+          setCrops(dummyCrops);
+          
+          // ダミーデータから栽培シーズンのリストを作成
+          const seasons = [...new Set(dummyCrops.map(crop => crop.season))].filter(Boolean);
+          setAvailableSeasons(seasons);
+          
+          // ダミーのハウスデータを作成
+          const housesData = {};
+          dummyCrops.forEach(crop => {
+            housesData[crop.id] = crop.currentHouses || [];
+          });
+          setCropHouses(housesData);
+        }
+      } catch (err) {
+        console.error('作物データの取得中にエラーが発生しました:', err);
+        setError('データの取得中にエラーが発生しました。');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    // 初期データの取得
+    fetchData();
+  }, []);
+
+  // フィルタリングされた作物リストを計算
+  const filteredCrops = crops.filter(crop => {
+    // 名前でフィルタリング
+    const nameMatch = crop.name.toLowerCase().includes(filterText.toLowerCase());
+    
+    // シーズンでフィルタリング
+    const seasonMatch = !seasonFilter || crop.season === seasonFilter;
+    
+    return nameMatch && seasonMatch;
+  });
+  
+  // データ操作ハンドラー
+  const handleAddCrop = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      await addCrop(formData);
+      setIsAddModalOpen(false);
+      
+      // データを再取得して表示を更新
+      const newCropsData = await getAllCrops();
+      const formattedCrops = newCropsData.map(crop => formatFirestoreData(crop));
+      setCrops(formattedCrops);
+      
+      // 成功メッセージを表示
+      alert('作物が追加されました');
+    } catch (err) {
+      console.error('作物の追加中にエラーが発生しました:', err);
+      setError('作物の追加中にエラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleUpdateCrop = async (e) => {
+    e.preventDefault();
+    if (!selectedCrop) return;
+    
+    try {
+      setLoading(true);
+      await updateCrop(selectedCrop.id, formData);
+      setIsEditModalOpen(false);
+      
+      // データを再取得して表示を更新
+      const newCropsData = await getAllCrops();
+      const formattedCrops = newCropsData.map(crop => formatFirestoreData(crop));
+      setCrops(formattedCrops);
+      
+      // 成功メッセージを表示
+      alert('作物が更新されました');
+    } catch (err) {
+      console.error('作物の更新中にエラーが発生しました:', err);
+      setError('作物の更新中にエラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleDeleteCrop = async () => {
+    if (!selectedCrop) return;
+    
+    try {
+      setLoading(true);
+      await deleteCrop(selectedCrop.id);
+      setIsDeleteModalOpen(false);
+      
+      // データを再取得して表示を更新
+      const newCropsData = await getAllCrops();
+      const formattedCrops = newCropsData.map(crop => formatFirestoreData(crop));
+      setCrops(formattedCrops);
+      
+      // 成功メッセージを表示
+      alert('作物が削除されました');
+    } catch (err) {
+      console.error('作物の削除中にエラーが発生しました:', err);
+      setError('作物の削除中にエラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  };

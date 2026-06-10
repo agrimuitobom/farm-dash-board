@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 共通の関数
+    function isServiceAccount() {
+      return request.auth != null && 
+            request.auth.token.firebase.sign_in_provider == 'service_account';
+    }
+    
+    // 環境データの読み取りは誰でも可能、書き込みはサービスアカウントのみ
+    match /environmental_data/{docId} {
+      allow read: if true;
+      allow write: if isServiceAccount();
+    }
+    
+    // ハウス情報
+    match /houses/{houseId} {
+      allow read: if true;
+      allow write: if true; // テスト中は開放、後で制限を追加
+    }
+    
+    // 作物情報
+    match /crops/{cropId} {
+      allow read: if true;
+      allow write: if true; // テスト中は開放、後で制限を追加
+    }
+    
+    // 作業記録
+    match /tasks/{taskId} {
+      allow read: if true;
+      allow write: if true; // テスト中は開放、後で制限を追加
+    }
+    
+    // その他のコレクションに対するデフォルトルール
+    match /{document=**} {
+      allow read: if true;
+      allow write: if true; // テスト中は開放、後で制限を追加
+    }
+  }
+}
