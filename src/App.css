@@ -172,6 +172,14 @@ div:has(text="サポートが必要ですか？") {
   touch-action: manipulation;
 }
 
+/* モバイルで固定ヘッダー/フッターと重ならないようパディングを調整 */
+@media (max-width: 767px) {
+  .mobile-adjust {
+    padding-top: 60px;
+    padding-bottom: 72px;
+  }
+}
+
 /* タッチフィードバック */
 .touch-feedback {
   transition: background-color 0.2s, transform 0.1s;

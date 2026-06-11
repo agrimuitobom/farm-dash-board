@@ -57,7 +57,7 @@ const Dashboard = () => {
       fertilizeInfo: '有機肥料500g/株',
       harvestAmount: 15,
       status: '生育中',
-      image: 'https://via.placeholder.com/150/FF6B6B/FFFFFF?text=トマト',
+      image: 'https://placehold.jp/150/FF6B6B/FFFFFF?text=トマト',
     },
     {
       id: '温室ハウス2',
@@ -68,7 +68,7 @@ const Dashboard = () => {
       fertilizeInfo: '液肥散布',
       harvestAmount: 23,
       status: '生育中',
-      image: 'https://via.placeholder.com/150/56E39F/FFFFFF?text=キュウリ',
+      image: 'https://placehold.jp/150/56E39F/FFFFFF?text=キュウリ',
     },
     {
       id: '温室ハウス3',
@@ -79,7 +79,7 @@ const Dashboard = () => {
       fertilizeInfo: '複合肥料300g/株',
       harvestAmount: 12,
       status: '生育中',
-      image: 'https://via.placeholder.com/150/FF9A3C/FFFFFF?text=パプリカ',
+      image: 'https://placehold.jp/150/FF9A3C/FFFFFF?text=パプリカ',
     },
     {
       id: '温室ハウス4',
@@ -90,7 +90,7 @@ const Dashboard = () => {
       fertilizeInfo: '有機肥料200g/株',
       harvestAmount: 8,
       status: '生育中',
-      image: 'https://via.placeholder.com/150/59CE8F/FFFFFF?text=レタス',
+      image: 'https://placehold.jp/150/59CE8F/FFFFFF?text=レタス',
     },
     {
       id: '温室ハウス5',
@@ -101,7 +101,7 @@ const Dashboard = () => {
       fertilizeInfo: '有機肥料450g/株',
       harvestAmount: 18,
       status: '生育中',
-      image: 'https://via.placeholder.com/150/9F44D3/FFFFFF?text=ナス',
+      image: 'https://placehold.jp/150/9F44D3/FFFFFF?text=ナス',
     }
   ];
   

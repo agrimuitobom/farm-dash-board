@@ -1556,6 +1556,11 @@ export const formatFirestoreData = (data) => {
   if (formatted.imageUrl) {
     formatted.imageUrl = normalizeImageUrl(formatted.imageUrl, formatted.name || '');
   }
-  
+
+  // 画像URLを正規化する（ハウスデータなど image フィールドの場合）
+  if (formatted.image) {
+    formatted.image = normalizeImageUrl(formatted.image, formatted.name || formatted.currentCrop || '');
+  }
+
   return formatted;
 };
