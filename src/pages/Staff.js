@@ -88,22 +88,15 @@ const Staff = () => {
   // フォーム送信ハンドラ
   const handleFormSubmit = async (formData) => {
     try {
-      console.log('スタッフ保存開始:', formData);
-      
       if (selectedStaff) {
         // 既存スタッフの更新
-        console.log('スタッフ更新モード:', selectedStaff.id);
-        const updatedId = await saveStaffMember(formData, selectedStaff.id);
-        console.log('スタッフ更新成功:', updatedId);
+        await saveStaffMember(formData, selectedStaff.id);
       } else {
         // 新規スタッフの追加
-        console.log('スタッフ新規追加モード');
-        const newId = await saveStaffMember(formData);
-        console.log('スタッフ追加成功:', newId);
+        await saveStaffMember(formData);
       }
-      
+
       // 一覧を更新して一覧タブに戻る
-      console.log('スタッフ一覧を更新');
       await fetchStaffList();
       setActiveTab('list');
       return true;

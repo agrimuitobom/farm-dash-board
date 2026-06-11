@@ -45,7 +45,6 @@ function AppContent() {
       // ケース1: via.placeholder.com → placehold.jp に修正
       if (src.includes('via.placeholder.com')) {
         newSrc = src.replace('via.placeholder.com', 'placehold.jp');
-        console.log(`画像URLを修正しました(ケース1): ${src} -> ${newSrc}`);
         e.target.src = newSrc;
         return;
       }
@@ -54,7 +53,6 @@ function AppContent() {
       if (src.match(/^[^:]*via\.placeholder/)) {
         newSrc = 'https://' + src;
         newSrc = newSrc.replace('via.placeholder.com', 'placehold.jp');
-        console.log(`画像URLを修正しました(ケース2): ${src} -> ${newSrc}`);
         e.target.src = newSrc;
         return;
       }
@@ -66,7 +64,6 @@ function AppContent() {
           const bgColor = match[1] || '56E39F';
           const textColor = match[2] || 'FFFFFF';
           newSrc = `https://placehold.jp/150/${bgColor}/${textColor}.png?text=画像`;
-          console.log(`画像URLを修正しました(ケース3): ${src} -> ${newSrc}`);
           e.target.src = newSrc;
           return;
         }
@@ -77,7 +74,6 @@ function AppContent() {
         const randomColors = ['4CAF50', '2196F3', 'FFC107', 'E91E63', '9C27B0', '795548'];
         const bgColor = randomColors[Math.floor(Math.random() * randomColors.length)];
         newSrc = `https://placehold.jp/150/${bgColor}/FFFFFF.png?text=画像`;
-        console.log(`デフォルトプレースホルダーを設定しました: ${newSrc}`);
         e.target.src = newSrc;
         return;
       }
@@ -107,7 +103,6 @@ function AppContent() {
       
       if (src.includes('via.placeholder.com')) {
         const newSrc = src.replace('via.placeholder.com', 'placehold.jp');
-        console.log(`事前修正: ${src} -> ${newSrc}`);
         imgElement.src = newSrc;
       }
     }

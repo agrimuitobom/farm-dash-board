@@ -16,7 +16,6 @@ export const getCurrentWeather = async () => {
     
     // APIキーが設定されていない、またはデフォルト値の場合はモックデータを返す
     if (!apiKey || apiKey === 'YOUR_API_KEY' || apiKey === 'YOUR_API_KEY_HERE' || apiKey.includes('YOUR_API')) {
-      console.log('OpenWeather API keyが設定されていないため、モックデータを返します。');
       return getMockWeatherData();
     }
     
@@ -54,7 +53,6 @@ export const getCurrentWeather = async () => {
     };
   } catch (error) {
     console.error('天気データの取得に失敗しました:', error);
-    console.log('モックデータを使用します。');
     return getMockWeatherData();
   }
 };

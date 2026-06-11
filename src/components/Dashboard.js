@@ -129,7 +129,6 @@ const Dashboard = () => {
           const formattedHouses = housesData.map(house => formatFirestoreData(house));
           setHouses(formattedHouses);
         } else {
-          console.log('ハウスデータが見つからないため、ダミーデータを使用します');
           setHouses(dummyHouses);
           setIsUsingDummyData(true);
         }

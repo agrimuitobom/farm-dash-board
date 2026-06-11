@@ -59,20 +59,6 @@ const initializeFirebaseApp = async () => {
       }
     }
 
-    // WebChannelエラーを監視
-    window.addEventListener('online', () => {
-      console.log('ネットワーク接続が回復しました - Firestoreの接続を更新します');
-      // 接続が回復した場合の処理をここに追加できます
-    });
-
-    window.addEventListener('offline', () => {
-      console.log('ネットワーク接続が切断されました - オフラインモードに移行します');
-      // オフラインモードに移行した場合の処理をここに追加できます
-    });
-    
-    console.log('Firebaseの初期化が完了しました');
-    console.log('認証は実際のFirebaseを使用します');
-    console.log('auth domain:', auth.config.authDomain);
   } catch (e) {
     console.error('Firebase設定中にエラーが発生しました:', e);
     

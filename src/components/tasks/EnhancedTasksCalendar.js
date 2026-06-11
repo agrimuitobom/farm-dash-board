@@ -133,7 +133,6 @@ const EnhancedTasksCalendar = ({ tasks, onTaskClick, onTaskUpdate }) => {
   // 日付選択ハンドラー
   const handleSelectSlot = ({ start }) => {
     // 新規タスク作成画面への遷移や、選択日付を渡すことができます
-    console.log('日付選択:', start);
     // ここで新規タスク作成のモーダルを表示する処理などを実装
   };
   
