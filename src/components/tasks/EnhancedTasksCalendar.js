@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { Calendar, Views, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
-import 'moment/locale/ja';
+import { Calendar, Views, dateFnsLocalizer } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay, isSameDay } from 'date-fns';
+import { ja } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // 日本語ロケールの設定
-moment.locale('ja');
-const localizer = momentLocalizer(moment);
+const locales = { ja };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
 // カスタムツールバーコンポーネント
 const CustomToolbar = ({ date, onNavigate, onView, view }) => {
@@ -16,7 +16,7 @@ const CustomToolbar = ({ date, onNavigate, onView, view }) => {
   const goToNext = () => onNavigate('NEXT');
   
   // 月表示のフォーマット
-  const label = moment(date).format('YYYY年 M月');
+  const label = format(date, 'yyyy年 M月', { locale: ja });
   
   return (
     <div className="flex justify-between items-center mb-4 px-2">
@@ -40,7 +40,7 @@ const CustomToolbar = ({ date, onNavigate, onView, view }) => {
         <button
           onClick={goToToday}
           className={`px-3 py-1 text-sm rounded ${
-            moment().isSame(date, 'day') ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'
+            isSameDay(new Date(), date) ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'
           }`}
         >
           今日
@@ -186,11 +186,12 @@ const EnhancedTasksCalendar = ({ tasks, onTaskClick, onTaskUpdate }) => {
           components={{
             toolbar: CustomToolbar
           }}
+          culture="ja"
           formats={{
-            monthHeaderFormat: 'YYYY年M月',
-            dayHeaderFormat: 'M月D日(ddd)',
-            dayRangeHeaderFormat: ({ start, end }) => 
-              `${moment(start).format('M月D日')} - ${moment(end).format('M月D日')}`
+            monthHeaderFormat: 'yyyy年M月',
+            dayHeaderFormat: 'M月d日(EEE)',
+            dayRangeHeaderFormat: ({ start, end }) =>
+              `${format(start, 'M月d日', { locale: ja })} - ${format(end, 'M月d日', { locale: ja })}`
           }}
           messages={{
             showMore: total => `他 ${total} 件`
