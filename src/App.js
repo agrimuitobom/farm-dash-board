@@ -7,7 +7,6 @@ import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import HouseDetail from './components/HouseDetail';
-import initializeFirebase from './initializeFirebase';
 
 // モバイル最適化コンポーネント
 import MobileNav from './components/mobile/MobileNav';
@@ -34,14 +33,6 @@ function AppContent() {
   const isMobile = useMediaQuery('(max-width: 767px)');
   
   useEffect(() => {
-    // Firebaseの初期化
-    initializeFirebase()
-      .then(success => {
-        if (success) console.log('Firebase初期化成功');
-        else console.warn('Firebase初期化が満足に完了しませんでした');
-      })
-      .catch(err => console.error('Firebase初期化エラー:', err));
-    
     // プレースホルダー画像のURL修正
     // 画像URLの問題を包括的に対処
     window.addEventListener('error', function(e) {

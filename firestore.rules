@@ -2,39 +2,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // 共通の関数
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
     function isServiceAccount() {
-      return request.auth != null && 
+      return request.auth != null &&
             request.auth.token.firebase.sign_in_provider == 'service_account';
     }
-    
-    // 環境データの読み取りは誰でも可能、書き込みはサービスアカウントのみ
+
+    // 環境データの書き込みはサービスアカウント（センサー連携）のみ
+    // 読み取りは下記の共通ルールでログインユーザーに許可される
     match /environmental_data/{docId} {
-      allow read: if true;
       allow write: if isServiceAccount();
     }
-    
-    // ハウス情報
-    match /houses/{houseId} {
-      allow read: if true;
-      allow write: if true; // テスト中は開放、後で制限を追加
-    }
-    
-    // 作物情報
-    match /crops/{cropId} {
-      allow read: if true;
-      allow write: if true; // テスト中は開放、後で制限を追加
-    }
-    
-    // 作業記録
-    match /tasks/{taskId} {
-      allow read: if true;
-      allow write: if true; // テスト中は開放、後で制限を追加
-    }
-    
-    // その他のコレクションに対するデフォルトルール
-    match /{document=**} {
-      allow read: if true;
-      allow write: if true; // テスト中は開放、後で制限を追加
+
+    // すべてのコレクション: ログイン済みユーザーのみ読み書き可能
+    // （environmental_data への一般ユーザーの書き込みは除外）
+    match /{collectionName}/{docId=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && collectionName != 'environmental_data';
     }
   }
 }
