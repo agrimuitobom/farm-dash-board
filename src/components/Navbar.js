@@ -92,37 +92,37 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white shadow-sm px-6 py-3">
+    <nav className="bg-white shadow-sm px-4 py-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <h1 className="text-xl font-bold text-gray-800 mr-6">西農圃場データ</h1>
-          <div className="relative mx-4">
+        <div className="flex items-center min-w-0">
+          <h1 className="text-xl font-bold text-gray-800 mr-4 whitespace-nowrap">西農圃場データ</h1>
+          <div className="relative hidden md:block">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3">
               <Search className="h-5 w-5 text-gray-400" />
             </span>
             <input
               type="text"
               placeholder="検索..."
-              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-40 lg:w-56"
             />
           </div>
         </div>
-        
-        <div className="flex items-center">
-          {/* 現在の日時 */}
-          <div className="mr-6 text-gray-600">
+
+        <div className="flex items-center flex-shrink-0">
+          {/* 現在の日時 - lgサイズ以上で表示 */}
+          <div className="mr-4 text-gray-600 text-sm hidden lg:block">
             {formatDate(currentTime)}
           </div>
-          
-          {/* 西条市の天気 */}
-          <div className="mr-6 w-64">
+
+          {/* 西条市の天気 - lgサイズ以上で表示 */}
+          <div className="mr-4 w-56 hidden lg:block">
             <WeatherWidget />
           </div>
           
           {/* 通知アイコン */}
           <div className="relative">
-            <button 
-              className="p-2 rounded-full hover:bg-gray-100 relative mr-4"
+            <button
+              className="p-2 rounded-full hover:bg-gray-100 relative mr-2"
               onClick={toggleNotifications}
             >
               <Bell className="h-6 w-6 text-gray-600" />
@@ -130,12 +130,12 @@ const Navbar = () => {
                 {notifications.length}
               </span>
             </button>
-            
+
             {/* 通知ポップアップ */}
             {showNotifications && (
-              <div 
+              <div
                 ref={notificationsRef}
-                className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-50 overflow-hidden"
+                className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1rem)] bg-white rounded-lg shadow-xl z-50 overflow-hidden"
               >
                 <div className="p-3 border-b flex justify-between items-center">
                   <h3 className="font-semibold text-gray-700">通知</h3>
@@ -204,9 +204,9 @@ const Navbar = () => {
             
             {/* ユーザーメニューポップアップ */}
             {showUserMenu && (
-              <div 
+              <div
                 ref={userMenuRef}
-                className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-50 overflow-hidden"
+                className="absolute right-0 mt-2 w-48 max-w-[calc(100vw-1rem)] bg-white rounded-lg shadow-xl z-50 overflow-hidden"
               >
                 <div className="p-3 border-b">
                   <p className="text-sm font-medium text-gray-900">

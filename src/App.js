@@ -31,7 +31,7 @@ import Trainings from './pages/Trainings';
 import './App.css';
 
 function AppContent() {
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useMediaQuery('(max-width: 767px)');
   
   useEffect(() => {
     // Firebaseの初期化
@@ -148,7 +148,7 @@ function AppContent() {
       }
       
       /* モバイルでパディングを調整 */
-      @media (max-width: 768px) {
+      @media (max-width: 767px) {
         .mobile-adjust {
           padding-top: 60px;
           padding-bottom: 72px;
