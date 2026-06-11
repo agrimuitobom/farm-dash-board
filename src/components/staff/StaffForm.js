@@ -116,9 +116,6 @@ const StaffForm = ({ staffData = null, onSubmit, onCancel }) => {
     setLoading(true);
     
     try {
-      // フォームデータをコンソールに出力
-      console.log('送信前フォームデータ:', formData);
-      
       // 日付型に変換
       const formattedData = {
         ...formData,
@@ -129,9 +126,7 @@ const StaffForm = ({ staffData = null, onSubmit, onCancel }) => {
         }))
       };
       
-      console.log('送信するデータ:', formattedData);
-      const result = await onSubmit(formattedData);
-      console.log('データ送信成功:', result);
+      await onSubmit(formattedData);
     } catch (error) {
       console.error('スタッフデータの保存中にエラーが発生しました:', error);
       alert('スタッフデータの保存に失敗しました: ' + error.message);

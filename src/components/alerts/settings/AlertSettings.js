@@ -173,7 +173,6 @@ const AlertSettings = () => {
       // await exportAlertsToCsv(alertHistory);
       
       // ダミー実装
-      console.log('アラート履歴をエクスポート:', alertHistory);
       
       // 成功メッセージ
       setSuccess('アラート履歴がエクスポートされました');

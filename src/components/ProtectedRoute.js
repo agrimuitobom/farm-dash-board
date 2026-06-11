@@ -5,18 +5,7 @@ import Login from './Login';
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
-  
-  console.log('ProtectedRoute: currentUser =', currentUser);
-  console.log('ProtectedRoute: loading =', loading);
-  
-  // 一時的な開発用フラグ - Firebase認証設定完了後にfalseに変更
-  const SKIP_AUTH_FOR_DEVELOPMENT = false;
-  
-  if (SKIP_AUTH_FOR_DEVELOPMENT) {
-    console.log('開発モード: 認証をスキップしています');
-    return children;
-  }
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

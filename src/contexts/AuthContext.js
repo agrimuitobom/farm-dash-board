@@ -76,19 +76,7 @@ export const AuthProvider = ({ children }) => {
 
   // 認証状態の監視
   useEffect(() => {
-    console.log('AuthContext: 認証状態の監視を開始します');
-    console.log('AuthContext: Firebase Authオブジェクト:', auth);
-    
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log('AuthContext: 認証状態が変更されました:', user ? `ログイン済み: ${user.email}` : '未ログイン');
-      if (user) {
-        console.log('AuthContext: ユーザー情報:', {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          emailVerified: user.emailVerified
-        });
-      }
       setCurrentUser(user);
       setLoading(false);
     }, (error) => {

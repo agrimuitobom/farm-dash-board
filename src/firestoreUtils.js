@@ -106,7 +106,6 @@ async function executeWithRetry(operation, maxRetries = 3, initialDelay = 300) {
 export const addCropAreaToHouse = async (houseId, cropAreaData) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: addCropAreaToHouse ${houseId}`);
     return mockFirestoreUtils.addCropAreaToHouse && mockFirestoreUtils.addCropAreaToHouse(houseId, cropAreaData);
   }
   
@@ -161,7 +160,6 @@ export const addCropAreaToHouse = async (houseId, cropAreaData) => {
 export const updateCropArea = async (houseId, areaId, cropAreaData) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: updateCropArea ${houseId} ${areaId}`);
     return mockFirestoreUtils.updateCropArea && mockFirestoreUtils.updateCropArea(houseId, areaId, cropAreaData);
   }
   
@@ -226,7 +224,6 @@ export const updateCropArea = async (houseId, areaId, cropAreaData) => {
 export const removeCropArea = async (houseId, areaId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: removeCropArea ${houseId} ${areaId}`);
     return mockFirestoreUtils.removeCropArea && mockFirestoreUtils.removeCropArea(houseId, areaId);
   }
   
@@ -274,7 +271,6 @@ export const removeCropArea = async (houseId, areaId) => {
 export const migrateHouseToCropAreas = async (houseId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: migrateHouseToCropAreas ${houseId}`);
     return mockFirestoreUtils.migrateHouseToCropAreas && mockFirestoreUtils.migrateHouseToCropAreas(houseId);
   }
   
@@ -290,7 +286,6 @@ export const migrateHouseToCropAreas = async (houseId) => {
     
     // 既にcropAreasがある場合は何もしない
     if (houseData.cropAreas && Array.isArray(houseData.cropAreas) && houseData.cropAreas.length > 0) {
-      console.log(`ハウス ${houseId} は既にマイグレーション済みです`);
       return false;
     }
     
@@ -350,7 +345,6 @@ export const migrateHouseToCropAreas = async (houseId) => {
 export const updateHouseCrops = async (houseId, crops) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: updateHouseCrops ${houseId}`);
     return mockFirestoreUtils.updateHouseCrops && mockFirestoreUtils.updateHouseCrops(houseId, crops);
   }
   
@@ -381,7 +375,6 @@ export const updateHouseCrops = async (houseId, crops) => {
 export const getAllHouses = async () => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: getAllHouses');
     return mockFirestoreUtils.getAllHouses();
   }
   
@@ -409,7 +402,6 @@ export const getAllHouses = async () => {
 export const getHouseById = async (houseId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getHouseById ${houseId}`);
     return mockFirestoreUtils.getHouseById(houseId);
   }
   
@@ -437,7 +429,6 @@ export const getHouseById = async (houseId) => {
 export const subscribeToHouse = (houseId, callback) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: subscribeToHouse ${houseId}`);
     return mockFirestoreUtils.subscribeToHouse(houseId, callback);
   }
   
@@ -462,7 +453,6 @@ export const subscribeToHouse = (houseId, callback) => {
 export const subscribeToHouses = (callback) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: subscribeToHouses');
     return mockFirestoreUtils.subscribeToHouses(callback);
   }
   
@@ -490,7 +480,6 @@ export const subscribeToHouses = (callback) => {
 export const getLatestEnvironmentalData = async (location) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getLatestEnvironmentalData ${location}`);
     return mockFirestoreUtils.getLatestEnvironmentalData(location);
   }
   
@@ -528,7 +517,6 @@ export const getLatestEnvironmentalData = async (location) => {
 export const getEnvironmentalHistory = async (location, hours = 24) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getEnvironmentalHistory ${location} ${hours}h`);
     return mockFirestoreUtils.getEnvironmentalHistory(location, hours);
   }
   
@@ -564,7 +552,6 @@ export const getEnvironmentalHistory = async (location, hours = 24) => {
 export const subscribeToEnvironmentalData = (location, callback) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: subscribeToEnvironmentalData ${location}`);
     return mockFirestoreUtils.subscribeToEnvironmentalData(location, callback);
   }
   
@@ -598,7 +585,6 @@ export const subscribeToEnvironmentalData = (location, callback) => {
 export const addTask = async (taskData) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: addTask');
     return mockFirestoreUtils.addTask(taskData);
   }
   
@@ -628,7 +614,6 @@ export const addTask = async (taskData) => {
 export const getPendingTasks = async (limitCount = 10) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getPendingTasks(${limitCount})`);
     return mockFirestoreUtils.getPendingTasks(limitCount);
   }
   
@@ -660,7 +645,6 @@ export const getPendingTasks = async (limitCount = 10) => {
 export const getTasksByHouse = async (houseId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getTasksByHouse ${houseId}`);
     return mockFirestoreUtils.getTasksByHouse(houseId);
   }
   
@@ -694,7 +678,6 @@ export const getTasksByHouse = async (houseId) => {
 export const getUnresolvedAlerts = async (limitCount = 10) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getUnresolvedAlerts(${limitCount})`);
     return mockFirestoreUtils.getUnresolvedAlerts(limitCount);
   }
   
@@ -726,7 +709,6 @@ export const getUnresolvedAlerts = async (limitCount = 10) => {
 export const getAlertsByHouse = async (houseId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getAlertsByHouse ${houseId}`);
     return mockFirestoreUtils.getAlertsByHouse(houseId);
   }
   
@@ -758,7 +740,6 @@ export const getAlertsByHouse = async (houseId) => {
 export const resolveAlert = async (alertId, resolutionData) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: resolveAlert ${alertId}`);
     return mockFirestoreUtils.resolveAlert(alertId, resolutionData);
   }
   
@@ -789,7 +770,6 @@ export const resolveAlert = async (alertId, resolutionData) => {
 export const getCropHistory = async (houseId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getCropHistory ${houseId}`);
     return mockFirestoreUtils.getCropHistory && mockFirestoreUtils.getCropHistory(houseId);
   }
   
@@ -821,7 +801,6 @@ export const getCropHistory = async (houseId) => {
 export const moveCropToHistory = async (houseId, cropData) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: moveCropToHistory ${houseId}`);
     return mockFirestoreUtils.moveCropToHistory && mockFirestoreUtils.moveCropToHistory(houseId, cropData);
   }
   
@@ -859,7 +838,6 @@ export const moveCropToHistory = async (houseId, cropData) => {
 export const getAllCrops = async () => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: getAllCrops');
     return mockFirestoreUtils.getAllCrops();
   }
   
@@ -889,7 +867,6 @@ export const getAllCrops = async () => {
 export const getHousesByCrop = async (cropId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getHousesByCrop ${cropId}`);
     return mockFirestoreUtils.getHousesByCrop(cropId);
   }
   
@@ -929,7 +906,6 @@ export const getHousesByCrop = async (cropId) => {
 export const addCrop = async (cropData) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: addCrop');
     return mockFirestoreUtils.addCrop(cropData);
   }
   
@@ -957,7 +933,6 @@ export const addCrop = async (cropData) => {
 export const updateCrop = async (cropId, cropData) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: updateCrop ${cropId}`);
     return mockFirestoreUtils.updateCrop(cropId, cropData);
   }
   
@@ -982,7 +957,6 @@ export const updateCrop = async (cropId, cropData) => {
 export const deleteCrop = async (cropId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: deleteCrop ${cropId}`);
     return mockFirestoreUtils.deleteCrop(cropId);
   }
   
@@ -1007,7 +981,6 @@ export const deleteCrop = async (cropId) => {
 export const getShiftList = async (startDate, endDate) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: getShiftList');
     return mockFirestoreUtils.getShiftList(startDate, endDate);
   }
   
@@ -1040,7 +1013,6 @@ export const getShiftList = async (startDate, endDate) => {
 export const saveShift = async (shiftData, shiftId = null) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: saveShift ${shiftId || 'new'}`);
     return mockFirestoreUtils.saveShift(shiftData, shiftId);
   }
   
@@ -1083,7 +1055,6 @@ export const saveShift = async (shiftData, shiftId = null) => {
 export const deleteShift = async (shiftId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: deleteShift ${shiftId}`);
     return mockFirestoreUtils.deleteShift(shiftId);
   }
   
@@ -1107,7 +1078,6 @@ export const deleteShift = async (shiftId) => {
 export const getStaffShifts = async (staffId, startDate, endDate) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getStaffShifts ${staffId}`);
     return mockFirestoreUtils.getStaffShifts(staffId, startDate, endDate);
   }
   
@@ -1140,7 +1110,6 @@ export const getStaffShifts = async (staffId, startDate, endDate) => {
 export const getShiftDetails = async (shiftId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getShiftDetails ${shiftId}`);
     return mockFirestoreUtils.getShiftDetails(shiftId);
   }
   
@@ -1171,7 +1140,6 @@ export const getShiftDetails = async (shiftId) => {
 export const updateTask = async (taskId, taskData) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: updateTask ${taskId}`);
     return mockFirestoreUtils.updateTask && mockFirestoreUtils.updateTask(taskId, taskData);
   }
   
@@ -1196,7 +1164,6 @@ export const updateTask = async (taskId, taskData) => {
 export const getTasks = async (limitCount = 100) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getTasks`);
     return mockFirestoreUtils.getTasks && mockFirestoreUtils.getTasks(limitCount);
   }
   
@@ -1251,7 +1218,6 @@ const getArrayRemove = (...items) => {
 export const getStaffList = async () => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: getStaffList');
     return mockFirestoreUtils.getStaffList();
   }
   
@@ -1282,7 +1248,6 @@ export const getStaffList = async () => {
 export const getStaffDetails = async (staffId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: getStaffDetails ${staffId}`);
     return mockFirestoreUtils.getStaffDetails(staffId);
   }
   
@@ -1313,7 +1278,6 @@ export const getStaffDetails = async (staffId) => {
 export const saveStaffMember = async (staffData, staffId = null) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: saveStaffMember ${staffId || 'new'}`);
     return mockFirestoreUtils.saveStaffMember(staffData, staffId);
   }
   
@@ -1361,7 +1325,6 @@ export const saveStaffMember = async (staffData, staffId = null) => {
 export const deleteStaffMember = async (staffId) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log(`モックモード: deleteStaffMember ${staffId}`);
     return mockFirestoreUtils.deleteStaffMember(staffId);
   }
   
@@ -1469,7 +1432,6 @@ export const getStaffTasks = async (staffId) => {
 export const getSkillsMasterList = async () => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: getSkillsMasterList');
     return mockFirestoreUtils.getSkillsMasterList();
   }
   
@@ -1500,7 +1462,6 @@ export const getSkillsMasterList = async () => {
 export const updateSkillsMasterList = async (data) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: updateSkillsMasterList');
     return mockFirestoreUtils.updateSkillsMasterList(data);
   }
   
@@ -1524,7 +1485,6 @@ export const updateSkillsMasterList = async (data) => {
 export const getShiftsMasterList = async () => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
-    console.log('モックモード: getShiftsMasterList');
     return mockFirestoreUtils.getShiftsMasterList();
   }
   
@@ -1596,6 +1556,11 @@ export const formatFirestoreData = (data) => {
   if (formatted.imageUrl) {
     formatted.imageUrl = normalizeImageUrl(formatted.imageUrl, formatted.name || '');
   }
-  
+
+  // 画像URLを正規化する（ハウスデータなど image フィールドの場合）
+  if (formatted.image) {
+    formatted.image = normalizeImageUrl(formatted.image, formatted.name || formatted.currentCrop || '');
+  }
+
   return formatted;
 };

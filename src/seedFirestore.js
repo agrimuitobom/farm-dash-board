@@ -31,7 +31,7 @@ const housesData = [
     fertilizeInfo: '有機肥料500g/株',
     harvestAmount: 15,
     status: '生育中',
-    image: 'https://via.placeholder.com/150',
+    image: 'https://placehold.jp/150',
   },
   {
     id: '温室ハウス2',
@@ -42,7 +42,7 @@ const housesData = [
     fertilizeInfo: '液肥散布',
     harvestAmount: 23,
     status: '生育中',
-    image: 'https://via.placeholder.com/150',
+    image: 'https://placehold.jp/150',
   },
   {
     id: '温室ハウス3',
@@ -53,7 +53,7 @@ const housesData = [
     fertilizeInfo: '複合肥料300g/株',
     harvestAmount: 12,
     status: '生育中',
-    image: 'https://via.placeholder.com/150',
+    image: 'https://placehold.jp/150',
   },
   {
     id: '温室ハウス4',
@@ -64,7 +64,7 @@ const housesData = [
     fertilizeInfo: '有機肥料200g/株',
     harvestAmount: 8,
     status: '生育中',
-    image: 'https://via.placeholder.com/150',
+    image: 'https://placehold.jp/150',
   },
   {
     id: '温室ハウス5',
@@ -75,7 +75,7 @@ const housesData = [
     fertilizeInfo: '有機肥料450g/株',
     harvestAmount: 18,
     status: '生育中',
-    image: 'https://via.placeholder.com/150',
+    image: 'https://placehold.jp/150',
   }
 ];
 

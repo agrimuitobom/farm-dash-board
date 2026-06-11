@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
-import 'moment/locale/ja';
+import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { ja } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { getShiftList } from '../../firestoreUtils';
 
 // 日本語設定
-moment.locale('ja');
-const localizer = momentLocalizer(moment);
+const locales = { ja };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
 // カレンダーのメッセージ設定（日本語化）
 const messages = {
@@ -134,6 +134,7 @@ const ShiftCalendar = ({ onSelectShift, onAddShift }) => {
         )}
         
         <Calendar
+          culture="ja"
           localizer={localizer}
           events={shifts}
           startAccessor="start"
