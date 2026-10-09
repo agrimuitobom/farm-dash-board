@@ -19,6 +19,7 @@ import TabNavigation from './TabNavigation';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import EnvironmentalChart from '../EnvironmentalChart';
 import FloatingActionButton from './FloatingActionButton';
+import HouseFormModal from '../houses/HouseFormModal';
 
 import { 
   getHouseById, 
@@ -46,6 +47,7 @@ const MobileHouseDetail = () => {
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [cropHistoryData, setCropHistoryData] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
+  const [isHouseFormOpen, setIsHouseFormOpen] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // タブ定義
@@ -389,7 +391,7 @@ const MobileHouseDetail = () => {
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
         <div>
-          <h2 className="text-xl font-bold text-gray-800">{house.name}</h2>
+          <h2 className="text-xl font-bold text-gray-800">{house.name || house.id}</h2>
           {house.status && (
             <span className={`px-2 py-0.5 text-xs rounded-full ${
               house.status === '稼働中' ? 'bg-green-100 text-green-800' : 
@@ -400,6 +402,13 @@ const MobileHouseDetail = () => {
             </span>
           )}
         </div>
+        <button
+          onClick={() => setIsHouseFormOpen(true)}
+          className="ml-auto p-2 rounded-full hover:bg-gray-200"
+          aria-label="ハウス情報を編集"
+        >
+          <Edit className="w-5 h-5 text-gray-600" />
+        </button>
       </div>
 
       <div className="mb-4 bg-white rounded-lg shadow p-4">
@@ -409,10 +418,10 @@ const MobileHouseDetail = () => {
             <p className="font-medium">{house.area || '--'} m²</p>
           </div>
           <div>
-            <p className="text-gray-500">建設日</p>
+            <p className="text-gray-500">定植日</p>
             <p className="font-medium">
-              {house.constructionDate 
-                ? new Date(house.constructionDate).toLocaleDateString() 
+              {house.plantDate instanceof Date
+                ? house.plantDate.toLocaleDateString()
                 : '--'
               }
             </p>
@@ -438,6 +447,13 @@ const MobileHouseDetail = () => {
       <FloatingActionButton 
         actions={fabActions} 
         onAction={handleFabAction} 
+      />
+      
+      <HouseFormModal
+        isOpen={isHouseFormOpen}
+        onClose={() => setIsHouseFormOpen(false)}
+        house={house}
+        onDeleted={() => navigate('/houses')}
       />
     </div>
   );

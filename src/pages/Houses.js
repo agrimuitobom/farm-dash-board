@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import MobileNav from '../components/mobile/MobileNav';
 import TabNavigation from '../components/mobile/TabNavigation';
@@ -8,21 +8,22 @@ import {
   PlusCircle, 
   Loader2, 
   AlertCircle, 
-  InfoIcon 
+  InfoIcon,
+  Pencil
 } from 'lucide-react';
 import HouseCard from '../components/HouseCard';
+import HouseFormModal from '../components/houses/HouseFormModal';
 
 // Firestoreユーティリティをインポート
 import { 
   getAllHouses, 
   getUnresolvedAlerts, 
-  getLatestEnvironmentalData,
   formatFirestoreData,
-  subscribeToHouses
+  subscribeToHouses,
+  subscribeToEnvironmentalData
 } from '../firestoreUtils';
 
 const Houses = () => {
-  const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 768px)');
   
   // 状態の初期化
@@ -36,6 +37,19 @@ const Houses = () => {
   const [housesAlerts, setHousesAlerts] = useState({});
   const [availableCrops, setAvailableCrops] = useState([]);
   const [availableStatuses, setAvailableStatuses] = useState([]);
+  // ハウス登録・編集モーダル（editingHouse が null なら新規登録）
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingHouse, setEditingHouse] = useState(null);
+  
+  const openCreateForm = () => {
+    setEditingHouse(null);
+    setIsFormOpen(true);
+  };
+  
+  const openEditForm = (house) => {
+    setEditingHouse(house);
+    setIsFormOpen(true);
+  };
 
   // Firestoreからデータを取得
   useEffect(() => {
@@ -60,32 +74,22 @@ const Houses = () => {
           const statuses = [...new Set(formattedHouses.map(house => house.status))].filter(Boolean);
           setAvailableStatuses(statuses);
           
-          // 各ハウスの最新環境データを取得
-          const envData = {};
-          const alertsData = {};
-          
-          // ハウスごとの環境データとアラートを取得
-          await Promise.all(formattedHouses.map(async (house) => {
-            try {
-              // 環境データの取得
-              const latestEnv = await getLatestEnvironmentalData(house.id);
-              if (latestEnv) {
-                envData[house.id] = formatFirestoreData(latestEnv);
+          // ハウスごとの未解決アラート件数を集計
+          // （環境データは下の useEffect でリアルタイム監視する）
+          try {
+            const alerts = await getUnresolvedAlerts(10);
+            const alertsData = {};
+            alerts.forEach(alert => {
+              if (alert.houseId) {
+                alertsData[alert.houseId] = (alertsData[alert.houseId] || 0) + 1;
               }
-              
-              // アラートの取得
-              const alerts = await getUnresolvedAlerts(10);
-              const houseAlerts = alerts.filter(alert => alert.houseId === house.id);
-              alertsData[house.id] = houseAlerts.length;
-            } catch (envError) {
-              console.error(`ハウス ${house.id} のデータ取得エラー:`, envError);
-            }
-          }));
-          
-          setHousesEnvironmentalData(envData);
-          setHousesAlerts(alertsData);
+            });
+            setHousesAlerts(alertsData);
+          } catch (alertError) {
+            console.error('アラートの取得エラー:', alertError);
+          }
         } else {
-          setError('ハウスデータが見つかりませんでした。設定ページからデータベースの初期化を行ってください。');
+          setError(null);
         }
       } catch (err) {
         console.error('ハウスデータの取得中にエラーが発生しました:', err);
@@ -98,15 +102,16 @@ const Houses = () => {
     // 初期データの取得
     fetchData();
     
-    // ハウスデータのリアルタイム更新をセットアップ
+    // ハウスデータのリアルタイム更新をセットアップ（登録・編集・削除が即座に反映される）
     const unsubscribe = subscribeToHouses((updatedHouses) => {
-      if (updatedHouses && updatedHouses.length > 0) {
-        const formattedHouses = updatedHouses
-          .filter(house => !house.id.startsWith('_'))
-          .map(house => formatFirestoreData(house));
-        
-        setHouses(formattedHouses);
-      }
+      const formattedHouses = (updatedHouses || [])
+        .filter(house => !house.id.startsWith('_'))
+        .map(house => formatFirestoreData(house))
+        .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id, 'ja'));
+      
+      setHouses(formattedHouses);
+      setAvailableCrops([...new Set(formattedHouses.map(house => house.currentCrop))].filter(Boolean));
+      setAvailableStatuses([...new Set(formattedHouses.map(house => house.status))].filter(Boolean));
     });
     
     // クリーンアップ関数
@@ -115,11 +120,26 @@ const Houses = () => {
     };
   }, []);
 
+  // 各ハウスの環境データをリアルタイム監視（location がハウスIDのデータ）
+  const houseIdsKey = houses.map(house => house.id).join('\n');
+  useEffect(() => {
+    if (!houseIdsKey) return undefined;
+    
+    const unsubscribes = houseIdsKey.split('\n').map(houseId =>
+      subscribeToEnvironmentalData(houseId, (data) => {
+        setHousesEnvironmentalData(prev => ({ ...prev, [houseId]: data }));
+      })
+    );
+    
+    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
+  }, [houseIdsKey]);
+
   // フィルタリングロジック
   const filteredHouses = houses.filter(house => {
     // テキスト検索
     const textMatch = !filterText || 
       house.id.toLowerCase().includes(filterText.toLowerCase()) ||
+      (house.name && house.name.toLowerCase().includes(filterText.toLowerCase())) ||
       (house.currentCrop && house.currentCrop.toLowerCase().includes(filterText.toLowerCase())) ||
       (house.status && house.status.toLowerCase().includes(filterText.toLowerCase()));
     
@@ -143,7 +163,7 @@ const Houses = () => {
   // モバイル用のFABアクションハンドラー
   const handleFabAction = (action) => {
     if (action.id === 'add-house') {
-      navigate('/settings');
+      openCreateForm();
     }
   };
 
@@ -166,13 +186,14 @@ const Houses = () => {
         <h2 className="text-2xl font-bold text-gray-800">温室ハウス一覧</h2>
         <p className="text-gray-600">現在稼働中の温室ハウスの一覧と状況を確認できます</p>
       </div>
-      <Link 
-        to="/settings" 
+      <button
+        type="button"
+        onClick={openCreateForm}
         className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center transition-colors"
       >
         <PlusCircle className="h-5 w-5 mr-2" />
-        <span>管理者設定</span>
-      </Link>
+        <span>ハウスを登録</span>
+      </button>
     </div>
   );
 
@@ -250,30 +271,47 @@ const Houses = () => {
     <>
       <div className={`${isMobile ? 'px-4 py-2 space-y-4' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'}`}>
         {filteredHouses.map(house => (
-          <HouseCard 
-            key={house.id} 
-            house={house}
-            environmentalData={housesEnvironmentalData[house.id] || null}
-            alertCount={housesAlerts[house.id] || 0}
-          />
+          <div key={house.id} className="relative">
+            <HouseCard 
+              house={house}
+              environmentalData={housesEnvironmentalData[house.id] || null}
+              alertCount={housesAlerts[house.id] || 0}
+            />
+            <button
+              type="button"
+              onClick={() => openEditForm(house)}
+              className="absolute top-2 left-2 p-1.5 bg-white bg-opacity-90 rounded-full shadow hover:bg-gray-100"
+              aria-label={`${house.name || house.id}を編集`}
+              title="編集"
+            >
+              <Pencil className="h-4 w-4 text-gray-600" />
+            </button>
+          </div>
         ))}
       </div>
 
       {filteredHouses.length === 0 && !loading && (
         <div className="text-center py-8 bg-gray-50 rounded-lg mt-4 flex flex-col items-center">
           <InfoIcon className="h-12 w-12 text-gray-400 mb-2" />
-          <p className="text-gray-600 font-medium">該当するハウスが見つかりません</p>
           {filterText || statusFilter || cropFilter ? (
-            <p className="text-gray-500 mt-1">検索条件を変更してみてください</p>
+            <>
+              <p className="text-gray-600 font-medium">該当するハウスが見つかりません</p>
+              <p className="text-gray-500 mt-1">検索条件を変更してみてください</p>
+            </>
           ) : (
-            <div className="mt-4">
-              <Link 
-                to="/settings" 
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center transition-colors inline-flex"
-              >
-                データベースを初期化する
-              </Link>
-            </div>
+            <>
+              <p className="text-gray-600 font-medium">まだハウスが登録されていません</p>
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={openCreateForm}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center transition-colors inline-flex"
+                >
+                  <PlusCircle className="h-5 w-5 mr-2" />
+                  ハウスを登録
+                </button>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -305,6 +343,12 @@ const Houses = () => {
       {renderHousesList()}
       
       {renderFloatingActionButton()}
+      
+      <HouseFormModal
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        house={editingHouse}
+      />
     </div>
   );
 };

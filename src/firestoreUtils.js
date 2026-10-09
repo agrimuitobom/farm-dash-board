@@ -372,6 +372,73 @@ export const updateHouseCrops = async (houseId, crops) => {
   }
 };
 
+// ハウス登録・編集フォームの値を Firestore 保存用に変換する
+const toHouseDocument = (houseData) => ({
+  name: houseData.name.trim(),
+  currentCrop: houseData.currentCrop?.trim() || '',
+  status: houseData.status || '',
+  plantDate: houseData.plantDate ? Timestamp.fromDate(new Date(houseData.plantDate)) : null,
+  area: houseData.area === '' || houseData.area == null ? null : Number(houseData.area),
+  notes: houseData.notes?.trim() || '',
+  updatedAt: getServerTimestamp()
+});
+
+/**
+ * ハウスを新規登録する
+ * ドキュメントIDはセンサー送信時の location と一致させるため、ユーザーが指定する
+ * @param {string} houseId - ハウスID（センサーの LOCATION と同じ値）
+ * @param {Object} houseData - フォームの値（name, currentCrop, status, plantDate, area, notes）
+ * @returns {Promise<string>} 登録したハウスID
+ */
+export const createHouse = async (houseId, houseData) => {
+  if (isMockMode()) {
+    return mockFirestoreUtils.createHouse && mockFirestoreUtils.createHouse(houseId, houseData);
+  }
+  
+  const houseRef = doc(db, 'houses', houseId);
+  const existing = await getDoc(houseRef);
+  if (existing.exists()) {
+    throw new Error(`ハウスID「${houseId}」はすでに登録されています`);
+  }
+  
+  await setDoc(houseRef, {
+    ...toHouseDocument(houseData),
+    isActive: true,
+    createdAt: getServerTimestamp()
+  });
+  
+  return houseId;
+};
+
+/**
+ * ハウス情報を更新する
+ * @param {string} houseId - ハウスID
+ * @param {Object} houseData - フォームの値（name, currentCrop, status, plantDate, area, notes）
+ * @returns {Promise<boolean>} 成功した場合はtrue
+ */
+export const updateHouse = async (houseId, houseData) => {
+  if (isMockMode()) {
+    return mockFirestoreUtils.updateHouse && mockFirestoreUtils.updateHouse(houseId, houseData);
+  }
+  
+  await updateDoc(doc(db, 'houses', houseId), toHouseDocument(houseData));
+  return true;
+};
+
+/**
+ * ハウスを削除する（センサーの環境データは削除しない）
+ * @param {string} houseId - ハウスID
+ * @returns {Promise<boolean>} 成功した場合はtrue
+ */
+export const deleteHouse = async (houseId) => {
+  if (isMockMode()) {
+    return mockFirestoreUtils.deleteHouse && mockFirestoreUtils.deleteHouse(houseId);
+  }
+  
+  await deleteDoc(doc(db, 'houses', houseId));
+  return true;
+};
+
 export const getAllHouses = async () => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
