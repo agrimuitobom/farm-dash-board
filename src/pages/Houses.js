@@ -16,9 +16,9 @@ import HouseCard from '../components/HouseCard';
 import { 
   getAllHouses, 
   getUnresolvedAlerts, 
-  getLatestEnvironmentalData,
   formatFirestoreData,
-  subscribeToHouses
+  subscribeToHouses,
+  subscribeToEnvironmentalData
 } from '../firestoreUtils';
 
 const Houses = () => {
@@ -60,30 +60,20 @@ const Houses = () => {
           const statuses = [...new Set(formattedHouses.map(house => house.status))].filter(Boolean);
           setAvailableStatuses(statuses);
           
-          // 各ハウスの最新環境データを取得
-          const envData = {};
-          const alertsData = {};
-          
-          // ハウスごとの環境データとアラートを取得
-          await Promise.all(formattedHouses.map(async (house) => {
-            try {
-              // 環境データの取得
-              const latestEnv = await getLatestEnvironmentalData(house.id);
-              if (latestEnv) {
-                envData[house.id] = formatFirestoreData(latestEnv);
+          // ハウスごとの未解決アラート件数を集計
+          // （環境データは下の useEffect でリアルタイム監視する）
+          try {
+            const alerts = await getUnresolvedAlerts(10);
+            const alertsData = {};
+            alerts.forEach(alert => {
+              if (alert.houseId) {
+                alertsData[alert.houseId] = (alertsData[alert.houseId] || 0) + 1;
               }
-              
-              // アラートの取得
-              const alerts = await getUnresolvedAlerts(10);
-              const houseAlerts = alerts.filter(alert => alert.houseId === house.id);
-              alertsData[house.id] = houseAlerts.length;
-            } catch (envError) {
-              console.error(`ハウス ${house.id} のデータ取得エラー:`, envError);
-            }
-          }));
-          
-          setHousesEnvironmentalData(envData);
-          setHousesAlerts(alertsData);
+            });
+            setHousesAlerts(alertsData);
+          } catch (alertError) {
+            console.error('アラートの取得エラー:', alertError);
+          }
         } else {
           setError('ハウスデータが見つかりませんでした。設定ページからデータベースの初期化を行ってください。');
         }
@@ -114,6 +104,20 @@ const Houses = () => {
       unsubscribe && unsubscribe();
     };
   }, []);
+
+  // 各ハウスの環境データをリアルタイム監視（location がハウスIDのデータ）
+  const houseIdsKey = houses.map(house => house.id).join('\n');
+  useEffect(() => {
+    if (!houseIdsKey) return undefined;
+    
+    const unsubscribes = houseIdsKey.split('\n').map(houseId =>
+      subscribeToEnvironmentalData(houseId, (data) => {
+        setHousesEnvironmentalData(prev => ({ ...prev, [houseId]: data }));
+      })
+    );
+    
+    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
+  }, [houseIdsKey]);
 
   // フィルタリングロジック
   const filteredHouses = houses.filter(house => {

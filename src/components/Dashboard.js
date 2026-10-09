@@ -4,25 +4,12 @@ import {
   Thermometer, 
   Droplets, 
   Wind, 
-  Sprout, 
   Sun, 
   RefreshCw,
-  TrendingUp,
   AlertCircle,
   Calendar
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { db } from '../firebase';
-import { 
-  collection, 
-  getDocs, 
-  query, 
-  orderBy, 
-  limit, 
-  where, 
-  onSnapshot,
-  Timestamp
-} from 'firebase/firestore';
 import WeatherWidget from './WeatherWidget';
 import HouseCard from './HouseCard';
 
@@ -37,14 +24,23 @@ import {
   subscribeToEnvironmentalData
 } from '../firestoreUtils';
 
+// 数値でない（センサーが計測していない）項目は '--' と表示する
+const formatValue = (value, digits) =>
+  typeof value === 'number' ? value.toFixed(digits) : '--';
+
+const toEnvironmentDisplay = (data) => ({
+  temperature: formatValue(data?.temperature, 1),
+  humidity: formatValue(data?.humidity, 0),
+  soilMoisture: formatValue(data?.soilMoisture, 0),
+  lastUpdated: data?.timestamp instanceof Date ? data.timestamp.toLocaleTimeString() : '--'
+});
+
+// グラフに描く点の最大数（データ間隔に関わらずこの数程度に間引く）
+const MAX_CHART_POINTS = 12;
+
 const Dashboard = () => {
   // 環境データの状態
-  const [environmentData, setEnvironmentData] = useState({
-    temperature: 23.5,
-    humidity: 65,
-    soilMoisture: 78,
-    lastUpdated: new Date().toLocaleTimeString()
-  });
+  const [environmentData, setEnvironmentData] = useState(toEnvironmentDisplay(null));
   
   // フォールバック用のダミーデータ
   const dummyHouses = [
@@ -113,10 +109,17 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isUsingDummyData, setIsUsingDummyData] = useState(false);
+  const [housesEnvironmentalData, setHousesEnvironmentalData] = useState({});
   
   // Firestoreからのデータ取得
   useEffect(() => {
-    let unsubscribeEnvironmental = null;
+    // 外気の環境データをリアルタイム監視（初回の値もこのコールバックで届く）
+    // データがまだ無い状態で開いても、センサーが送信を始めれば自動で表示される
+    const unsubscribeEnvironmental = subscribeToEnvironmentalData('outdoor', (data) => {
+      if (data) {
+        setEnvironmentData(toEnvironmentDisplay(data));
+      }
+    });
     
     const fetchData = async () => {
       try {
@@ -133,53 +136,25 @@ const Dashboard = () => {
           setIsUsingDummyData(true);
         }
         
-        // 環境データを取得（outdoorの最新データ）
-        try {
-          const outdoorData = await getLatestEnvironmentalData('outdoor');
-          if (outdoorData) {
-            const formattedData = formatFirestoreData(outdoorData);
-            setEnvironmentData({
-              temperature: formattedData.temperature.toFixed(1),
-              humidity: Math.round(formattedData.humidity),
-              soilMoisture: Math.round(formattedData.soilMoisture),
-              lastUpdated: formattedData.timestamp.toLocaleTimeString()
-            });
-            
-            // 環境データのリアルタイム更新
-            unsubscribeEnvironmental = subscribeToEnvironmentalData('outdoor', (data) => {
-              if (data) {
-                const formattedData = formatFirestoreData(data);
-                setEnvironmentData({
-                  temperature: formattedData.temperature.toFixed(1),
-                  humidity: Math.round(formattedData.humidity),
-                  soilMoisture: Math.round(formattedData.soilMoisture),
-                  lastUpdated: formattedData.timestamp.toLocaleTimeString()
-                });
-              }
-            });
-          }
-        } catch (err) {
-          console.error('環境データ取得エラー:', err);
-          // エラー時はそのまま続行（デフォルト値を使用）
-        }
-        
         // 環境データの履歴を取得して、グラフ用に加工
         try {
           const envHistory = await getEnvironmentalHistory('outdoor', 24);
           if (envHistory && envHistory.length > 0) {
-            // 2時間ごとのデータに間引く
-            const sampledData = [];
-            for (let i = 0; i < envHistory.length; i += 4) {
-              if (envHistory[i]) {
-                const formattedData = formatFirestoreData(envHistory[i]);
-                sampledData.push({
-                  name: formattedData.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  温度: formattedData.temperature,
-                  湿度: formattedData.humidity,
-                  土壌水分: formattedData.soilMoisture
-                });
-              }
-            }
+            // 新しい順で返ってくるので古い順に並べ替え、送信間隔に関わらず
+            // MAX_CHART_POINTS 点程度に間引く
+            const ordered = envHistory
+              .map(formatFirestoreData)
+              .filter(d => d.timestamp instanceof Date)
+              .reverse();
+            const step = Math.max(1, Math.ceil(ordered.length / MAX_CHART_POINTS));
+            const sampledData = ordered
+              .filter((_, i) => i % step === 0)
+              .map(d => ({
+                name: d.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                温度: d.temperature,
+                湿度: d.humidity,
+                土壌水分: d.soilMoisture
+              }));
             setChartData(sampledData);
           } else {
             // ダミーのチャートデータを設定
@@ -289,44 +264,32 @@ const Dashboard = () => {
     fetchData();
     
     // クリーンアップ関数
-    return () => {
-      if (unsubscribeEnvironmental) {
-        unsubscribeEnvironmental();
-      }
-    };
+    return () => unsubscribeEnvironmental();
   }, []);
 
+  // 各ハウスの環境データをリアルタイム監視（location がハウスIDのデータ）
+  const houseIdsKey = isUsingDummyData ? '' : houses.map(house => house.id).join('\n');
+  useEffect(() => {
+    if (!houseIdsKey) return undefined;
+    
+    const unsubscribes = houseIdsKey.split('\n').map(houseId =>
+      subscribeToEnvironmentalData(houseId, (data) => {
+        setHousesEnvironmentalData(prev => ({ ...prev, [houseId]: data }));
+      })
+    );
+    
+    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
+  }, [houseIdsKey]);
+
   // 手動更新ボタン用関数
-  const refreshData = () => {
-    if (isUsingDummyData) {
-      // ダミーデータ使用時は単純にランダムな値を設定
-      setEnvironmentData(prev => ({
-        ...prev,
-        temperature: (Math.random() * 2 + 22).toFixed(1),
-        humidity: Math.floor(Math.random() * 10 + 60),
-        soilMoisture: Math.floor(Math.random() * 10 + 70),
-        lastUpdated: new Date().toLocaleTimeString()
-      }));
-    } else {
-      // データを再取得（実際にはFirestoreから最新データを取得）
-      const fetchLatestData = async () => {
-        try {
-          const outdoorData = await getLatestEnvironmentalData('outdoor');
-          if (outdoorData) {
-            const formattedData = formatFirestoreData(outdoorData);
-            setEnvironmentData({
-              temperature: formattedData.temperature.toFixed(1),
-              humidity: Math.round(formattedData.humidity),
-              soilMoisture: Math.round(formattedData.soilMoisture),
-              lastUpdated: formattedData.timestamp.toLocaleTimeString()
-            });
-          }
-        } catch (error) {
-          console.error('最新データの取得中にエラーが発生しました:', error);
-        }
-      };
-      
-      fetchLatestData();
+  const refreshData = async () => {
+    try {
+      const outdoorData = await getLatestEnvironmentalData('outdoor');
+      if (outdoorData) {
+        setEnvironmentData(toEnvironmentDisplay(formatFirestoreData(outdoorData)));
+      }
+    } catch (error) {
+      console.error('最新データの取得中にエラーが発生しました:', error);
     }
   };
 
@@ -434,7 +397,9 @@ const Dashboard = () => {
                       <Legend />
                       <Line type="monotone" dataKey="温度" stroke="#ef4444" dot={false} />
                       <Line type="monotone" dataKey="湿度" stroke="#3b82f6" dot={false} />
-                      <Line type="monotone" dataKey="土壌水分" stroke="#10b981" dot={false} />
+                      {chartData.some(d => typeof d.土壌水分 === 'number') && (
+                        <Line type="monotone" dataKey="土壌水分" stroke="#10b981" dot={false} />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
@@ -458,7 +423,11 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {houses.length > 0 ? (
                 houses.map(house => (
-                  <HouseCard key={house.id} house={house} />
+                  <HouseCard
+                    key={house.id}
+                    house={house}
+                    environmentalData={housesEnvironmentalData[house.id] || null}
+                  />
                 ))
               ) : (
                 <div className="col-span-full py-8 text-center text-gray-500">
