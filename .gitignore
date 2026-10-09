@@ -30,3 +30,6 @@ firebase-debug.log
 # JetBrains IDEs
 .idea/
 *.iml
+
+# Pico W のパスワード類
+pico/secrets.py

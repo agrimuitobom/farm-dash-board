@@ -11,17 +11,41 @@ service cloud.firestore {
             request.auth.token.firebase.sign_in_provider == 'service_account';
     }
 
-    // 環境データの書き込みはサービスアカウント（センサー連携）のみ
+    // Pico W などサービスアカウント鍵を持てないセンサー用のアカウント
+    // （Firebase Authentication に手動で作成したメール/パスワードのユーザー）
+    function isSensor() {
+      return request.auth != null &&
+            request.auth.token.firebase.sign_in_provider == 'password' &&
+            request.auth.token.email == 'sensor@farm-dashboard.local';
+    }
+
+    // センサーが送る1件分の計測データとして正しい形か
+    // location は登録済みのハウスIDに限る
+    function isValidSensorReading() {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['location', 'temperature', 'humidity', 'timestamp']) &&
+            data.keys().hasAll(['location', 'temperature', 'humidity', 'timestamp']) &&
+            data.location is string &&
+            exists(/databases/$(database)/documents/houses/$(data.location)) &&
+            data.temperature is number && data.temperature > -40 && data.temperature < 80 &&
+            data.humidity is number && data.humidity >= 0 && data.humidity <= 100 &&
+            data.timestamp == request.time;
+    }
+
+    // 環境データの書き込みはサービスアカウント（Raspberry Pi）と
+    // センサーアカウント（Pico W。新規追加のみ）に限る
     // 読み取りは下記の共通ルールでログインユーザーに許可される
     match /environmental_data/{docId} {
       allow write: if isServiceAccount();
+      allow create: if isSensor() && isValidSensorReading();
     }
 
     // すべてのコレクション: ログイン済みユーザーのみ読み書き可能
     // （environmental_data への一般ユーザーの書き込みは除外）
+    // センサーアカウントは機器に保存されるため、環境データの追加以外は一切できない
     match /{collectionName}/{docId=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && collectionName != 'environmental_data';
+      allow read: if isSignedIn() && !isSensor();
+      allow write: if isSignedIn() && !isSensor() && collectionName != 'environmental_data';
     }
   }
 }
