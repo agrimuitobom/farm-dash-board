@@ -439,6 +439,17 @@ export const deleteHouse = async (houseId) => {
   return true;
 };
 
+// 稼働中のハウスだけに絞り、表示名順に並べる
+// isActive が無い古いハウス（以前のサンプルデータ投入など）も稼働中として扱う
+const toActiveHouses = (querySnapshot) =>
+  querySnapshot.docs
+    .map(doc => ({
+      id: doc.id,
+      ...formatFirestoreData(doc.data())
+    }))
+    .filter(house => !house.id.startsWith('_') && house.isActive !== false)
+    .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id, 'ja'));
+
 export const getAllHouses = async () => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
@@ -446,18 +457,8 @@ export const getAllHouses = async () => {
   }
   
   return executeWithRetry(async () => {
-    const housesQuery = query(
-      collection(db, 'houses'),
-      where('isActive', '==', true),
-      orderBy('name')
-    );
-    
-    const querySnapshot = await getDocs(housesQuery);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
+    const querySnapshot = await getDocs(collection(db, 'houses'));
+    return toActiveHouses(querySnapshot);
   });
 };
 
@@ -523,17 +524,8 @@ export const subscribeToHouses = (callback) => {
     return mockFirestoreUtils.subscribeToHouses(callback);
   }
   
-  const housesQuery = query(
-    collection(db, 'houses'),
-    where('isActive', '==', true)
-  );
-  
-  return onSnapshot(housesQuery, (querySnapshot) => {
-    const houses = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
-    callback(houses);
+  return onSnapshot(collection(db, 'houses'), (querySnapshot) => {
+    callback(toActiveHouses(querySnapshot));
   });
 };
 
@@ -939,18 +931,9 @@ export const getHousesByCrop = async (cropId) => {
   
   try {
     // 新しい複数作物対応バージョン: cropAreasに含まれる作物を検索
-    const housesQuery = query(
-      collection(db, 'houses'),
-      where('isActive', '==', true)
-    );
+    const querySnapshot = await getDocs(collection(db, 'houses'));
     
-    const querySnapshot = await getDocs(housesQuery);
-    
-    return querySnapshot.docs
-      .map(doc => ({
-        id: doc.id,
-        ...formatFirestoreData(doc.data())
-      }))
+    return toActiveHouses(querySnapshot)
       .filter(house => {
         // cropAreasがある場合、その中に指定されたcropIdを持つエリアがあるか確認
         if (house.cropAreas && Array.isArray(house.cropAreas)) {
