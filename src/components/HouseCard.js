@@ -63,7 +63,7 @@ const HouseCard = ({ house, environmentalData, alertCount = 0 }) => {
         <div className="h-32 bg-gray-200 relative">
           <img 
             src={house.image || getBackgroundImage()}
-            alt={house.id} 
+            alt={house.name || house.id} 
             className="w-full h-full object-cover"
           />
           
@@ -87,7 +87,7 @@ const HouseCard = ({ house, environmentalData, alertCount = 0 }) => {
         <div className="p-4">
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="font-bold text-gray-800">{house.id}</h3>
+              <h3 className="font-bold text-gray-800">{house.name || house.id}</h3>
               <p className="text-sm text-gray-600 mb-2">{house.currentCrop || '作物なし'}</p>
             </div>
             <ArrowRightCircle className="h-5 w-5 text-gray-300 group-hover:text-green-500 transition-colors" />

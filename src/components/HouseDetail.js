@@ -21,6 +21,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 // 環境データグラフコンポーネントをインポート
 import EnvironmentalChart from './EnvironmentalChart';
+import HouseFormModal from './houses/HouseFormModal';
 
 // Firestoreユーティリティをインポート
 import { 
@@ -425,6 +426,7 @@ const HouseDetail = () => {
   const [editingCrop, setEditingCrop] = useState(null);
   const [isHarvestModalOpen, setHarvestModalOpen] = useState(false);
   const [completingCrop, setCompletingCrop] = useState(null);
+  const [isHouseFormOpen, setIsHouseFormOpen] = useState(false);
 
   useEffect(() => {
     let unsubscribeHouse = null;
@@ -760,7 +762,7 @@ const HouseDetail = () => {
           >
             <ArrowLeft className="w-6 h-6 text-gray-600" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">{house.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-800">{house.name || house.id}</h1>
           {house.status && (
             <span className={`ml-3 px-3 py-1 text-sm rounded-full ${
               house.status === '稼働中' ? 'bg-green-100 text-green-800' : 
@@ -773,6 +775,13 @@ const HouseDetail = () => {
         </div>
         
         <div className="flex space-x-2">
+          <button
+            onClick={() => setIsHouseFormOpen(true)}
+            className="flex items-center px-3 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
+          >
+            <Edit className="w-4 h-4 mr-1" />
+            <span>編集</span>
+          </button>
           <button 
             onClick={() => window.location.reload()}
             className="flex items-center px-3 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
@@ -793,13 +802,13 @@ const HouseDetail = () => {
             </div>
             <div>
               <p className="text-gray-500 text-sm">栽培作物</p>
-              <p className="font-medium">{house.crop || '--'}</p>
+              <p className="font-medium">{house.currentCrop || house.crop || '--'}</p>
             </div>
             <div>
-              <p className="text-gray-500 text-sm">建設日</p>
+              <p className="text-gray-500 text-sm">定植日</p>
               <p className="font-medium">
-                {house.constructionDate 
-                  ? new Date(house.constructionDate).toLocaleDateString() 
+                {house.plantDate instanceof Date
+                  ? house.plantDate.toLocaleDateString()
                   : '--'
                 }
               </p>
@@ -867,6 +876,14 @@ const HouseDetail = () => {
         }}
         onConfirm={handleConfirmHarvest}
         cropName={completingCrop ? completingCrop.cropName : ''}
+      />
+      
+      {/* ハウス情報編集モーダル */}
+      <HouseFormModal
+        isOpen={isHouseFormOpen}
+        onClose={() => setIsHouseFormOpen(false)}
+        house={house}
+        onDeleted={() => navigate('/houses')}
       />
     </div>
   );
