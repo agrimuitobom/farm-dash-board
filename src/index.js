@@ -29,4 +29,21 @@ root.render(
 reportWebVitals();
 
 // Service Workerを登録してPWA機能を有効化する
-serviceWorkerRegistration.register();
+// 新しい版がデプロイされたら、タブを閉じなくても自動で切り替えて再読み込みする
+// （既定のままだと、すべてのタブを閉じるまで古い画面が表示され続ける）
+if ('serviceWorker' in navigator) {
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+}
+
+serviceWorkerRegistration.register({
+  onUpdate: (registration) => {
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+  }
+});

@@ -78,7 +78,7 @@ self.addEventListener('message', (event) => {
 // Farm Dashboard custom caching logic
 const CACHE_NAME = 'farm-dashboard-v1';
 const STATIC_ASSETS = [
-  '/favicon.ico',
+  '/favicon.svg',
   '/logo192.png',
   '/logo512.png',
   '/manifest.json'

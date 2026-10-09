@@ -44,6 +44,11 @@ function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
+      // 前回の訪問で新しい版がインストール済みのまま待機している場合
+      if (registration.waiting && navigator.serviceWorker.controller && config && config.onUpdate) {
+        config.onUpdate(registration);
+      }
+
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) {

@@ -32,6 +32,7 @@ const housesData = [
     harvestAmount: 15,
     status: '生育中',
     image: 'https://placehold.jp/150',
+    isActive: true,
   },
   {
     id: '温室ハウス2',
@@ -43,6 +44,7 @@ const housesData = [
     harvestAmount: 23,
     status: '生育中',
     image: 'https://placehold.jp/150',
+    isActive: true,
   },
   {
     id: '温室ハウス3',
@@ -54,6 +56,7 @@ const housesData = [
     harvestAmount: 12,
     status: '生育中',
     image: 'https://placehold.jp/150',
+    isActive: true,
   },
   {
     id: '温室ハウス4',
@@ -65,6 +68,7 @@ const housesData = [
     harvestAmount: 8,
     status: '生育中',
     image: 'https://placehold.jp/150',
+    isActive: true,
   },
   {
     id: '温室ハウス5',
@@ -76,6 +80,7 @@ const housesData = [
     harvestAmount: 18,
     status: '生育中',
     image: 'https://placehold.jp/150',
+    isActive: true,
   }
 ];
 
@@ -247,7 +252,7 @@ const seedFirestore = async () => {
     console.log('ハウスデータを投入中...');
     for (const house of housesData) {
       const houseId = house.id;
-      await setDoc(doc(db, 'houses', houseId), house);
+      await setDoc(doc(db, 'houses', houseId), { name: houseId, ...house });
     }
     console.log('ハウスデータの投入が完了しました。');
     
