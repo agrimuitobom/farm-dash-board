@@ -43,6 +43,7 @@ const MobileHouseDetail = () => {
   const [error, setError] = useState(null);
   const [envData, setEnvData] = useState(null);
   const [envHistory, setEnvHistory] = useState([]);
+  const [timeRange, setTimeRange] = useState(24);
   const [crops, setCrops] = useState([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [cropHistoryData, setCropHistoryData] = useState([]);
@@ -90,10 +91,6 @@ const MobileHouseDetail = () => {
           setEnvData(data);
         });
         
-        // 環境データ履歴を取得
-        const historyData = await getEnvironmentalHistory(id, 48);
-        setEnvHistory(historyData);
-        
         // 作物履歴を取得
         const cropHistory = await getCropHistory(id);
         setCropHistoryData(cropHistory);
@@ -114,6 +111,26 @@ const MobileHouseDetail = () => {
       if (unsubscribeEnv) unsubscribeEnv();
     };
   }, [id]);
+
+  // 選択された期間に応じて環境データ履歴を取得
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchEnvHistory = async () => {
+      try {
+        const historyData = await getEnvironmentalHistory(id, timeRange);
+        if (!cancelled) setEnvHistory(historyData);
+      } catch (err) {
+        console.error('環境データ履歴の取得に失敗しました:', err);
+      }
+    };
+
+    fetchEnvHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, timeRange]);
 
   // FABアクションハンドラ
   const handleFabAction = (action) => {
@@ -354,11 +371,11 @@ const MobileHouseDetail = () => {
             {renderEnvironmentalData()}
             
             <h3 className="text-lg font-semibold mt-6">環境データの推移</h3>
-            <div className="bg-white p-4 rounded-lg shadow">
-              <div className="h-64">
-                <EnvironmentalChart data={envHistory} />
-              </div>
-            </div>
+            <EnvironmentalChart
+              data={envHistory}
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+            />
           </div>
         );
       case 1: // 作物情報

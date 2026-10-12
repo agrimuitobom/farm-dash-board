@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Clock, RefreshCw } from 'lucide-react';
 
 const EnvironmentalChart = ({ data, onRefresh, timeRange = 24, onTimeRangeChange }) => {
   const [selectedMetrics, setSelectedMetrics] = useState(['temperature', 'humidity', 'soilMoisture']);
   const [localTimeRange, setLocalTimeRange] = useState(timeRange);
+
+  // 親から渡された時間範囲が変わったら同期
+  useEffect(() => {
+    setLocalTimeRange(timeRange);
+  }, [timeRange]);
 
   // メトリクスの定義
   const metrics = [
@@ -59,22 +64,38 @@ const EnvironmentalChart = ({ data, onRefresh, timeRange = 24, onTimeRangeChange
     return null;
   };
 
-  // データのフォーマット
+  // タイムスタンプをDateに変換（Firestore Timestamp にも対応）
+  const toDate = (timestamp) => {
+    if (!timestamp) return null;
+    if (typeof timestamp.toDate === 'function') return timestamp.toDate();
+    const date = new Date(timestamp);
+    return isNaN(date.getTime()) ? null : date;
+  };
+
+  // データのフォーマット（選択した期間で絞り込み、古い順に並べる）
   const formatData = (inputData) => {
     if (!inputData || !Array.isArray(inputData) || inputData.length === 0) {
       return [];
     }
 
-    return inputData.map(item => {
-      // タイムスタンプをフォーマット
-      const date = item.timestamp ? new Date(item.timestamp) : new Date();
-      const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      
-      return {
-        ...item,
-        time
-      };
-    });
+    const startTime = Date.now() - localTimeRange * 60 * 60 * 1000;
+    const showDate = localTimeRange > 24;
+
+    return inputData
+      .map(item => ({ item, date: toDate(item.timestamp) }))
+      .filter(({ date }) => date && date.getTime() >= startTime)
+      .sort((a, b) => a.date - b.date)
+      .map(({ item, date }) => {
+        const timeLabel = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const time = showDate
+          ? `${date.getMonth() + 1}/${date.getDate()} ${timeLabel}`
+          : timeLabel;
+
+        return {
+          ...item,
+          time
+        };
+      });
   };
 
   const formattedData = formatData(data);
@@ -141,6 +162,7 @@ const EnvironmentalChart = ({ data, onRefresh, timeRange = 24, onTimeRangeChange
                 dataKey="time" 
                 tick={{ fontSize: 12 }}
                 tickMargin={5}
+                minTickGap={20}
               />
               <YAxis yAxisId="left" orientation="left" tick={{ fontSize: 12 }} />
               <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />

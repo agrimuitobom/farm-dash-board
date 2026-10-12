@@ -419,6 +419,7 @@ const HouseDetail = () => {
   const [error, setError] = useState(null);
   const [envData, setEnvData] = useState(null);
   const [envHistory, setEnvHistory] = useState([]);
+  const [timeRange, setTimeRange] = useState(24);
   const [crops, setCrops] = useState([]);
   
   // モーダル状態
@@ -455,10 +456,6 @@ const HouseDetail = () => {
           setEnvData(data);
         });
         
-        // 環境データ履歴を取得
-        const historyData = await getEnvironmentalHistory(id, 48);
-        setEnvHistory(historyData);
-        
       } catch (err) {
         console.error('温室データの取得に失敗しました:', err);
         setError('温室データの取得中にエラーが発生しました');
@@ -475,6 +472,26 @@ const HouseDetail = () => {
       if (unsubscribeEnv) unsubscribeEnv();
     };
   }, [id]);
+
+  // 選択された期間に応じて環境データ履歴を取得
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchEnvHistory = async () => {
+      try {
+        const historyData = await getEnvironmentalHistory(id, timeRange);
+        if (!cancelled) setEnvHistory(historyData);
+      } catch (err) {
+        console.error('環境データ履歴の取得に失敗しました:', err);
+      }
+    };
+
+    fetchEnvHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, timeRange]);
 
   // 作物登録処理
   const handleSaveCrop = async (cropData) => {
@@ -655,20 +672,14 @@ const HouseDetail = () => {
 
   // 環境データグラフのレンダリング
   const renderEnvironmentalChart = () => {
-    if (envHistory.length === 0) {
-      return (
-        <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
-          環境データの履歴が読み込まれていません
-        </div>
-      );
-    }
-
     return (
       <div className="bg-white p-4 rounded-lg shadow">
         <h3 className="text-lg font-semibold mb-4">環境データの推移</h3>
-        <div className="h-80">
-          <EnvironmentalChart data={envHistory} />
-        </div>
+        <EnvironmentalChart
+          data={envHistory}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange}
+        />
       </div>
     );
   };
