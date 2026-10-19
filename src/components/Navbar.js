@@ -103,7 +103,7 @@ const Navbar = () => {
             <input
               type="text"
               placeholder="検索..."
-              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-40 lg:w-56"
+              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-40 2xl:w-56"
             />
           </div>
         </div>
@@ -114,9 +114,9 @@ const Navbar = () => {
             {formatDate(currentTime)}
           </div>
 
-          {/* 西条市の天気 - lgサイズ以上で表示 */}
-          <div className="mr-4 w-56 hidden lg:block">
-            <WeatherWidget />
+          {/* 西条市の天気 - 幅に余裕のある xl サイズ以上で表示（狭い画面では他の項目と重なるため） */}
+          <div className="mr-4 hidden xl:block">
+            <WeatherWidget compact />
           </div>
           
           {/* 通知アイコン */}
