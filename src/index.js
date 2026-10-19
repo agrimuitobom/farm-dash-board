@@ -4,6 +4,7 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
+import { startKioskMode } from './utils/kioskMode';
 
 // 開発環境でモックFirebaseを初期化
 if (window.useMockFirebase) {
@@ -27,6 +28,9 @@ root.render(
 
 // パフォーマンス測定が必要な場合はreportWebVitals()を呼び出す
 reportWebVitals();
+
+// 常時表示用ディスプレイ（?kiosk=1）では定期的に再読み込みする
+startKioskMode();
 
 // Service Workerを登録してPWA機能を有効化する
 // 新しい版がデプロイされたら、タブを閉じなくても自動で切り替えて再読み込みする
