@@ -3,7 +3,8 @@
 Raspberry Pi 5 + 7インチ DSI ディスプレイ（Waveshare 7-DSI-TOUCH-C）で、電源を入れると
 ダッシュボードが全画面で表示されるようにする。
 
-- 横置き 1024×600 で使う（ダッシュボードは PC 向けレイアウトで表示される）
+- 横置き 1024×600 で使う。7インチ画面専用の表示ページ `/display` を開く
+  （メニューなし、外気と各ハウスの温度・湿度を大きく1画面に表示。タイルをタッチすると24時間の推移）
 - 表示用アカウント `display@farm-dashboard.local` でログインしたままにする（読み取り専用）
 - `?kiosk=1` 付きで開くので、60分ごとと、ネットワーク復帰時にページを自動で再読み込みする
 
@@ -57,3 +58,4 @@ grep -q kiosk.sh ~/.config/labwc/autostart || echo "$HOME/kiosk.sh &" >> ~/.conf
 - キオスクを一時的に閉じる：キーボードで `Alt + F4`（閉じない場合は SSH で `pkill chromium`）
 - 自動起動をやめる：`~/.config/labwc/autostart` の `kiosk.sh` の行を削除して再起動
 - 表示するページや再読み込み間隔を変える：`~/kiosk.sh` の `URL`（`?kiosk=30` で30分ごと）
+- `kiosk.sh` を更新したとき：手順2の `curl` の行を実行し直して再起動する

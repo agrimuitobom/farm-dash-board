@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Thermometer, Droplets, Wind, AlertTriangle, Calendar, ArrowRightCircle } from 'lucide-react';
+import { environmentalRanges } from '../utils/environmentalRanges';
 
 // 各作物タイプのBase64エンコードされた単色SVG画像（軽量）
 const coloredBackgrounds = {
@@ -12,12 +13,6 @@ const coloredBackgrounds = {
   'default': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgZmlsbD0iIzZDQjRFRSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiNGRkZGRkYiPua4oOWgtDwvdGV4dD48L3N2Zz4='
 };
 
-// 環境データの正常範囲の設定
-const environmentalRanges = {
-  temperature: { min: 18, max: 30, unit: '°C' },
-  humidity: { min: 50, max: 80, unit: '%' },
-  soilMoisture: { min: 60, max: 85, unit: '%' }
-};
 
 const HouseCard = ({ house, environmentalData, alertCount = 0 }) => {
   // 作物タイプに基づいて背景画像を選択
