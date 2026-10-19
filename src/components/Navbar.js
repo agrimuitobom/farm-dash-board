@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import WeatherWidget from './WeatherWidget';
+import { subscribeToUnresolvedAlerts } from '../firestoreUtils';
+import { normalizeAlert } from '../utils/alerts';
 
 const Navbar = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -14,36 +16,11 @@ const Navbar = () => {
   const userMenuRef = useRef(null);
   const { currentUser, logout } = useAuth();
 
-  // ダミーの通知データ
-  const notifications = [
-    {
-      id: 'alert1',
-      title: '温室ハウス1の温度が高すぎます',
-      description: '設定温度を28℃としていますが、31℃を超えています',
-      timestamp: '2025/4/5 9:23:00',
-      severity: '警告',
-      type: 'temperature',
-      status: '未対応'
-    },
-    {
-      id: 'alert2',
-      title: '温室ハウス3の湿度が低すぎます',
-      description: '湿度が40%を下回っています。通常は60-70%を維持してください',
-      timestamp: '2025/4/5 8:45:00',
-      severity: '注意',
-      type: 'humidity',
-      status: '未対応'
-    },
-    {
-      id: 'alert3',
-      title: '温室ハウス5の土壌水分が低下しています',
-      description: '土壌水分が40%を下回っています。灌水が必要です',
-      timestamp: '2025/4/4 22:15:00',
-      severity: '警告',
-      type: 'soil',
-      status: '未対応'
-    }
-  ];
+  // 未解決のアラートを通知として表示（リアルタイム）
+  const [notifications, setNotifications] = useState([]);
+  useEffect(() => subscribeToUnresolvedAlerts(
+    (alerts) => setNotifications(alerts.map(normalizeAlert))
+  ), []);
 
   useEffect(() => {
     // 現在時刻の更新
@@ -103,7 +80,7 @@ const Navbar = () => {
             <input
               type="text"
               placeholder="検索..."
-              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-40 lg:w-56"
+              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-40 2xl:w-56"
             />
           </div>
         </div>
@@ -114,9 +91,9 @@ const Navbar = () => {
             {formatDate(currentTime)}
           </div>
 
-          {/* 西条市の天気 - lgサイズ以上で表示 */}
-          <div className="mr-4 w-56 hidden lg:block">
-            <WeatherWidget />
+          {/* 西条市の天気 - 幅に余裕のある xl サイズ以上で表示（狭い画面では他の項目と重なるため） */}
+          <div className="mr-4 hidden xl:block">
+            <WeatherWidget compact />
           </div>
           
           {/* 通知アイコン */}
@@ -126,9 +103,11 @@ const Navbar = () => {
               onClick={toggleNotifications}
             >
               <Bell className="h-6 w-6 text-gray-600" />
-              <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                {notifications.length}
-              </span>
+              {notifications.length > 0 && (
+                <span className="absolute top-0 right-0 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+                  {notifications.length > 99 ? '99+' : notifications.length}
+                </span>
+              )}
             </button>
 
             {/* 通知ポップアップ */}
@@ -149,7 +128,7 @@ const Navbar = () => {
                 
                 {notifications.length > 0 ? (
                   <div className="max-h-96 overflow-y-auto">
-                    {notifications.map((notification) => (
+                    {notifications.slice(0, 10).map((notification) => (
                       <Link 
                         key={notification.id}
                         to={`/alerts?id=${notification.id}`}
@@ -158,12 +137,14 @@ const Navbar = () => {
                       >
                         <div className="flex items-start">
                           <div className="flex-shrink-0 mt-0.5">
-                            <AlertTriangle className={`h-5 w-5 ${notification.severity === '警告' ? 'text-red-500' : 'text-yellow-500'}`} />
+                            <AlertTriangle className={`h-5 w-5 ${notification.severity === 'high' ? 'text-red-500' : 'text-yellow-500'}`} />
                           </div>
                           <div className="ml-3 flex-1">
                             <p className="text-sm font-medium text-gray-900">{notification.title}</p>
                             <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notification.description}</p>
-                            <p className="text-xs text-gray-500 mt-1">{notification.timestamp}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {notification.timestamp instanceof Date ? notification.timestamp.toLocaleString('ja-JP') : ''}
+                            </p>
                           </div>
                         </div>
                       </Link>
@@ -171,7 +152,7 @@ const Navbar = () => {
                   </div>
                 ) : (
                   <div className="p-4 text-center text-gray-500">
-                    <p>新しい通知はありません</p>
+                    <p>未解決のアラートはありません</p>
                   </div>
                 )}
                 

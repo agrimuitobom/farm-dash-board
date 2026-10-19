@@ -1,0 +1,14 @@
+[Unit]
+Description=Farm alert monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=saino-rasp22
+WorkingDirectory=/home/saino-rasp22/farm-sensor
+ExecStart=/home/saino-rasp22/farm-sensor/venv/bin/python alert_monitor.py
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

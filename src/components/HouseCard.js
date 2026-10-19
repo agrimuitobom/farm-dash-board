@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Thermometer, Droplets, Wind, AlertTriangle, Calendar, ArrowRightCircle } from 'lucide-react';
-import { environmentalRanges } from '../utils/environmentalRanges';
+import { environmentalRanges, getHouseThresholds } from '../utils/environmentalRanges';
 
 // 各作物タイプのBase64エンコードされた単色SVG画像（軽量）
 const coloredBackgrounds = {
@@ -28,10 +28,13 @@ const HouseCard = ({ house, environmentalData, alertCount = 0 }) => {
   };
 
   // 値が正常範囲内かチェック
+  // 気温・湿度はハウスごとの閾値、土壌水分は既定の範囲で判定する
+  const houseThresholds = getHouseThresholds(house);
   const getValueColor = (type, value) => {
-    if (!value || !environmentalRanges[type]) return 'text-gray-600';
+    const range = houseThresholds[type] || environmentalRanges[type];
+    if (!value || !range) return 'text-gray-600';
     
-    const { min, max } = environmentalRanges[type];
+    const { min, max } = range;
     if (value < min) return 'text-blue-600';
     if (value > max) return 'text-red-600';
     return 'text-green-600';

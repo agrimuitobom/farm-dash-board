@@ -16,8 +16,9 @@ import { getCurrentWeather, getWeatherType } from '../utils/weather/weatherApi';
 
 /**
  * 天気情報を表示するウィジェットコンポーネント
+ * @param {boolean} compact 上部バー用の省スペース表示（気温・天気・湿度のみ）
  */
-const WeatherWidget = () => {
+const WeatherWidget = ({ compact = false }) => {
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -94,8 +95,9 @@ const WeatherWidget = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-3 flex items-center">
-      {loading ? (
+    <div className={`bg-white rounded-lg shadow-sm flex items-center whitespace-nowrap ${compact ? 'px-3 py-1.5' : 'p-3'}`}>
+      {/* 10分ごとの再取得中は前回の天気を表示したままにする */}
+      {loading && !weatherData ? (
         <div className="flex items-center space-x-2 text-gray-400">
           <RefreshCw className="h-5 w-5 animate-spin" />
           <span>読み込み中...</span>
@@ -113,12 +115,14 @@ const WeatherWidget = () => {
           
           <div className="flex-1">
             <div className="flex items-center">
-              <span className="text-xl font-semibold mr-1">
+              <span className={`${compact ? 'text-lg' : 'text-xl'} font-semibold mr-1`}>
                 {Math.round(weatherData.temp)}°C
               </span>
-              <span className="text-xs text-gray-500">
-                （体感 {Math.round(weatherData.feels_like)}°C）
-              </span>
+              {!compact && (
+                <span className="text-xs text-gray-500">
+                  （体感 {Math.round(weatherData.feels_like)}°C）
+                </span>
+              )}
             </div>
             <div className="text-sm text-gray-600 flex items-center space-x-2">
               <span>{weatherData.weather.description}</span>
@@ -127,14 +131,16 @@ const WeatherWidget = () => {
                 <Droplets className="h-3 w-3 mr-1" />
                 {weatherData.humidity}%
               </span>
-              <span className="flex items-center">
-                <Wind className="h-3 w-3 mr-1" />
-                {weatherData.wind_speed}m/s
-              </span>
+              {!compact && (
+                <span className="flex items-center">
+                  <Wind className="h-3 w-3 mr-1" />
+                  {weatherData.wind_speed}m/s
+                </span>
+              )}
             </div>
           </div>
           
-          <div className="text-right">
+          <div className="text-right ml-3">
             <div className="text-xs font-medium text-gray-600">西条市</div>
             {/* Open-Meteo のデータは CC BY 4.0。出典の表示が必要 */}
             <a
