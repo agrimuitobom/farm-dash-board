@@ -41,3 +41,6 @@ export const startKioskMode = () => {
     setTimeout(reloadIfOnline, 10 * 1000);
   });
 };
+
+// キオスク表示中か（?kiosk= 付きで開かれたか）
+export const isKioskMode = () => readSetting() !== null;

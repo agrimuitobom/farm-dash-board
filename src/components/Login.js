@@ -1,7 +1,6 @@
 // src/components/Login.js
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -16,7 +15,6 @@ const Login = () => {
   const [showResetForm, setShowResetForm] = useState(false);
   
   const { login, signup, resetPassword } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,13 +33,13 @@ const Login = () => {
 
     try {
       if (isLogin) {
+        // ログイン画面は開こうとしたページの代わりに表示されているので、
+        // ログイン後はそのページ（例: 常時表示用の /display）がそのまま表示される
         await login(email, password);
         toast.success('ログインしました');
-        navigate('/');
       } else {
         await signup(email, password, displayName);
         toast.success('アカウントを作成しました');
-        navigate('/');
       }
     } catch (error) {
       console.error('認証エラー:', error);

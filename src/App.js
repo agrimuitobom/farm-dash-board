@@ -26,10 +26,11 @@ import Shifts from './pages/Shifts';
 import Tasks from './pages/Tasks';
 import Visitors from './pages/Visitors';
 import Trainings from './pages/Trainings';
+import Display from './pages/Display';
 
 import './App.css';
 
-function AppContent() {
+function MainLayout() {
   const isMobile = useMediaQuery('(max-width: 767px)');
 
   return (
@@ -89,7 +90,11 @@ function App() {
       <AuthProvider>
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
         <ProtectedRoute>
-          <AppContent />
+          <Routes>
+            {/* 常時表示用ディスプレイ（キオスク）: サイドバーやメニューを出さない */}
+            <Route path="/display" element={<Display />} />
+            <Route path="/*" element={<MainLayout />} />
+          </Routes>
         </ProtectedRoute>
       </AuthProvider>
     </BrowserRouter>
