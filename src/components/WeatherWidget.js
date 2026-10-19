@@ -12,7 +12,7 @@ import {
   RefreshCw,
   AlertTriangle
 } from 'lucide-react';
-import { getCurrentWeather, getWeatherType, getWindDirection, getWeatherIconUrl } from '../utils/weather/weatherApi';
+import { getCurrentWeather, getWeatherType } from '../utils/weather/weatherApi';
 
 /**
  * 天気情報を表示するウィジェットコンポーネント
@@ -61,10 +61,11 @@ const WeatherWidget = () => {
     switch (type) {
       case 'clear':
         return <SunMedium className="h-6 w-6 text-yellow-500" />;
+      case 'partly_cloudy':
+        return <CloudSun className="h-6 w-6 text-gray-500" />;
       case 'clouds':
-        return weatherId === 801 || weatherId === 802 
-          ? <CloudSun className="h-6 w-6 text-gray-500" /> 
-          : <Cloud className="h-6 w-6 text-gray-500" />;
+        return <Cloud className="h-6 w-6 text-gray-500" />;
+      case 'drizzle':
       case 'rain':
         return <CloudRain className="h-6 w-6 text-blue-500" />;
       case 'snow':
@@ -135,6 +136,15 @@ const WeatherWidget = () => {
           
           <div className="text-right">
             <div className="text-xs font-medium text-gray-600">西条市</div>
+            {/* Open-Meteo のデータは CC BY 4.0。出典の表示が必要 */}
+            <a
+              href="https://open-meteo.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-[10px] text-gray-400 hover:underline"
+            >
+              Open-Meteo
+            </a>
             <div className="text-xs text-gray-400 flex items-center justify-end">
               <span>{formatUpdateTime(lastUpdated)}</span>
               <button 
