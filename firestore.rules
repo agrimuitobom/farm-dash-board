@@ -19,6 +19,14 @@ service cloud.firestore {
             request.auth.token.email == 'sensor@farm-dashboard.local';
     }
 
+    // 常時表示用ディスプレイ（キオスク）のアカウント
+    // 画面を触った人がデータを書き換えられないよう、読み取り専用にする
+    function isViewer() {
+      return request.auth != null &&
+            request.auth.token.firebase.sign_in_provider == 'password' &&
+            request.auth.token.email == 'display@farm-dashboard.local';
+    }
+
     // センサーが送る1件分の計測データとして正しい形か
     // location は登録済みのハウスIDに限る
     function isValidSensorReading() {
@@ -43,9 +51,10 @@ service cloud.firestore {
     // すべてのコレクション: ログイン済みユーザーのみ読み書き可能
     // （environmental_data への一般ユーザーの書き込みは除外）
     // センサーアカウントは機器に保存されるため、環境データの追加以外は一切できない
+    // 表示用アカウントは読み取りのみ
     match /{collectionName}/{docId=**} {
       allow read: if isSignedIn() && !isSensor();
-      allow write: if isSignedIn() && !isSensor() && collectionName != 'environmental_data';
+      allow write: if isSignedIn() && !isSensor() && !isViewer() && collectionName != 'environmental_data';
     }
   }
 }
