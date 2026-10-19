@@ -1,115 +1,109 @@
 /**
- * OpenWeather APIを利用して天気データを取得するユーティリティ
+ * Open-Meteo（https://open-meteo.com/）から西条市の天気データを取得するユーティリティ
+ *
+ * - API キー不要・無料（非商用利用）
+ * - データは CC BY 4.0。画面に「Open-Meteo」の出典を表示すること
  */
 
 // 西条市の緯度・経度（市の中心付近の座標）
 const SAIJO_LAT = 33.9197;
 const SAIJO_LON = 133.1823;
 
+const CURRENT_FIELDS = [
+  'temperature_2m',
+  'relative_humidity_2m',
+  'apparent_temperature',
+  'weather_code',
+  'wind_speed_10m',
+  'wind_direction_10m',
+  'surface_pressure',
+  'is_day'
+].join(',');
+
+const FORECAST_URL =
+  'https://api.open-meteo.com/v1/forecast' +
+  `?latitude=${SAIJO_LAT}&longitude=${SAIJO_LON}` +
+  `&current=${CURRENT_FIELDS}` +
+  '&daily=sunrise,sunset&forecast_days=1' +
+  '&wind_speed_unit=ms&timezone=Asia%2FTokyo';
+
+// WMO 天気コード → 日本語の説明
+// https://open-meteo.com/en/docs の「WMO Weather interpretation codes」
+const WEATHER_DESCRIPTIONS = {
+  0: '快晴',
+  1: '晴れ',
+  2: '晴れ時々曇り',
+  3: '曇り',
+  45: '霧',
+  48: '霧（着氷）',
+  51: '弱い霧雨',
+  53: '霧雨',
+  55: '強い霧雨',
+  56: '着氷性の霧雨',
+  57: '強い着氷性の霧雨',
+  61: '小雨',
+  63: '雨',
+  65: '大雨',
+  66: '着氷性の雨',
+  67: '強い着氷性の雨',
+  71: '小雪',
+  73: '雪',
+  75: '大雪',
+  77: '霧雪',
+  80: 'にわか雨',
+  81: '強いにわか雨',
+  82: '激しいにわか雨',
+  85: 'にわか雪',
+  86: '強いにわか雪',
+  95: '雷雨',
+  96: '雷雨（ひょう）',
+  99: '激しい雷雨（ひょう）'
+};
+
 /**
- * OpenWeather APIから現在の天気データを取得
- * @returns {Promise<Object>} 天気データ
+ * Open-Meteo の応答を画面で使う形に変換する
+ * @param {Object} data Open-Meteo /v1/forecast の応答
+ * @returns {Object} 天気データ
+ */
+export const parseCurrentWeather = (data) => {
+  const current = data.current;
+  const code = current.weather_code;
+  return {
+    temp: current.temperature_2m, // 気温（℃）
+    feels_like: current.apparent_temperature, // 体感温度（℃）
+    humidity: current.relative_humidity_2m, // 湿度（%）
+    pressure: current.surface_pressure, // 気圧（hPa）
+    wind_speed: current.wind_speed_10m, // 風速（m/s）
+    wind_direction: current.wind_direction_10m, // 風向き（度）
+    is_day: current.is_day === 1,
+    weather: {
+      id: code, // WMO 天気コード
+      description: WEATHER_DESCRIPTIONS[code] || '不明'
+    },
+    location: '西条市',
+    sunrise: data.daily?.sunrise?.[0] ? new Date(data.daily.sunrise[0]) : null,
+    sunset: data.daily?.sunset?.[0] ? new Date(data.daily.sunset[0]) : null,
+    observedAt: new Date(current.time), // Open-Meteo 側の観測（解析）時刻
+    timestamp: new Date() // データ取得時刻
+  };
+};
+
+/**
+ * 現在の天気を取得する
+ * @returns {Promise<Object|null>} 天気データ。取得できなければ null
  */
 export const getCurrentWeather = async () => {
   try {
-    const apiKey = process.env.REACT_APP_OPENWEATHER_API_KEY;
-    
-    // APIキーが設定されていない、またはデフォルト値の場合はモックデータを返す
-    if (!apiKey || apiKey === 'YOUR_API_KEY' || apiKey === 'YOUR_API_KEY_HERE' || apiKey.includes('YOUR_API')) {
-      return getMockWeatherData();
-    }
-    
-    // 現在の天気を取得するAPI呼び出し（西条市の座標を使用）
-    const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${SAIJO_LAT}&lon=${SAIJO_LON}&units=metric&lang=ja&appid=${apiKey}`
-    );
-    
+    const response = await fetch(FORECAST_URL);
     if (!response.ok) {
-      console.warn(`OpenWeather API呼び出しに失敗しました: ${response.status}。モックデータを使用します。`);
-      return getMockWeatherData();
-    }
-    
-    const data = await response.json();
-    
-    // 必要なデータだけ抽出して返す
-    return {
-      temp: data.main.temp, // 温度（摂氏）
-      feels_like: data.main.feels_like, // 体感温度
-      humidity: data.main.humidity, // 湿度（%）
-      pressure: data.main.pressure, // 気圧（hPa）
-      wind_speed: data.wind.speed, // 風速（m/s）
-      wind_direction: data.wind.deg, // 風向き（度）
-      weather: {
-        id: data.weather[0].id, // 天気ID
-        main: data.weather[0].main, // 主な天気（英語）
-        description: data.weather[0].description, // 天気の説明（日本語）
-        icon: data.weather[0].icon // アイコンコード
-      },
-      location: data.name, // 地域名
-      country: data.sys.country, // 国コード
-      sunrise: new Date(data.sys.sunrise * 1000), // 日の出時刻
-      sunset: new Date(data.sys.sunset * 1000), // 日の入り時刻
-      timestamp: new Date(), // データ取得時刻
-    };
-  } catch (error) {
-    console.error('天気データの取得に失敗しました:', error);
-    return getMockWeatherData();
-  }
-};
-
-/**
- * 5日間の天気予報データを取得（3時間ごと）
- * @returns {Promise<Array>} 予報データの配列
- */
-export const getWeatherForecast = async () => {
-  try {
-    const apiKey = process.env.REACT_APP_OPENWEATHER_API_KEY;
-    
-    if (!apiKey) {
-      console.error('OpenWeather API keyが設定されていません。');
+      console.warn(`Open-Meteo の呼び出しに失敗しました: ${response.status}`);
       return null;
     }
-    
-    // 5日間の予報を取得するAPI呼び出し（西条市の座標を使用）
-    const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/forecast?lat=${SAIJO_LAT}&lon=${SAIJO_LON}&units=metric&lang=ja&appid=${apiKey}`
-    );
-    
-    if (!response.ok) {
-      throw new Error(`API呼び出しに失敗しました: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    // 必要なデータを整形して返す
-    return data.list.map(item => ({
-      dt: new Date(item.dt * 1000), // 予報日時
-      temp: item.main.temp, // 温度
-      humidity: item.main.humidity, // 湿度
-      weather: {
-        id: item.weather[0].id,
-        main: item.weather[0].main,
-        description: item.weather[0].description,
-        icon: item.weather[0].icon
-      },
-      wind_speed: item.wind.speed,
-      wind_direction: item.wind.deg,
-      pop: item.pop * 100, // 降水確率（%）
-    }));
+    return parseCurrentWeather(await response.json());
   } catch (error) {
-    console.error('天気予報データの取得に失敗しました:', error);
+    console.error('天気データの取得に失敗しました:', error);
     return null;
   }
-};
-
-/**
- * 天気アイコンのURLを取得
- * @param {string} iconCode アイコンコード
- * @param {number} size アイコンサイズ (1x, 2x, 4x) デフォルトは2x
- * @returns {string} アイコン画像のURL
- */
-export const getWeatherIconUrl = (iconCode, size = '2x') => {
-  return `https://openweathermap.org/img/wn/${iconCode}@${size}.png`;
 };
 
 /**
@@ -119,9 +113,9 @@ export const getWeatherIconUrl = (iconCode, size = '2x') => {
  */
 export const getWindDirection = (degrees) => {
   const directions = [
-    '北', '北北東', '北東', '東北東', 
+    '北', '北北東', '北東', '東北東',
     '東', '東南東', '南東', '南南東',
-    '南', '南南西', '南西', '西南西', 
+    '南', '南南西', '南西', '西南西',
     '西', '西北西', '北西', '北北西'
   ];
   const index = Math.round(degrees / 22.5) % 16;
@@ -129,43 +123,18 @@ export const getWindDirection = (degrees) => {
 };
 
 /**
- * 天気IDからカスタム天気タイプに変換
- * @param {number} weatherId OpenWeatherの天気ID
- * @returns {string} カスタム天気タイプ
+ * WMO 天気コードからアイコン用の天気タイプに変換
+ * @param {number} code WMO 天気コード
+ * @returns {string} 天気タイプ
  */
-export const getWeatherType = (weatherId) => {
-  if (weatherId >= 200 && weatherId < 300) return 'thunderstorm'; // 雷雨
-  if (weatherId >= 300 && weatherId < 400) return 'drizzle';      // 霧雨
-  if (weatherId >= 500 && weatherId < 600) return 'rain';         // 雨
-  if (weatherId >= 600 && weatherId < 700) return 'snow';         // 雪
-  if (weatherId >= 700 && weatherId < 800) return 'atmosphere';   // 霧など
-  if (weatherId === 800) return 'clear';                          // 晴れ
-  if (weatherId > 800) return 'clouds';                           // 曇り
+export const getWeatherType = (code) => {
+  if (code === 0 || code === 1) return 'clear';                   // 快晴・晴れ
+  if (code === 2) return 'partly_cloudy';                         // 晴れ時々曇り
+  if (code === 3) return 'clouds';                                // 曇り
+  if (code === 45 || code === 48) return 'atmosphere';            // 霧
+  if (code >= 51 && code <= 57) return 'drizzle';                 // 霧雨
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return 'rain'; // 雨・にわか雨
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow'; // 雪
+  if (code >= 95) return 'thunderstorm';                          // 雷雨
   return 'unknown';
-};
-
-/**
- * モックの天気データを生成（APIキーがない場合やテスト用）
- * @returns {Object} モック天気データ
- */
-export const getMockWeatherData = () => {
-  return {
-    temp: 22.5,
-    feels_like: 23.1,
-    humidity: 65,
-    pressure: 1015,
-    wind_speed: 3.6,
-    wind_direction: 180,
-    weather: {
-      id: 800,
-      main: 'Clear',
-      description: '晴れ',
-      icon: '01d'
-    },
-    location: '西条市',
-    country: 'JP',
-    sunrise: new Date(new Date().setHours(6, 0, 0, 0)),
-    sunset: new Date(new Date().setHours(18, 0, 0, 0)),
-    timestamp: new Date(),
-  };
 };
