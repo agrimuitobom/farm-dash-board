@@ -25,6 +25,9 @@ import { isKioskMode } from '../utils/kioskMode';
 
 // この時間データが来なければ「通信なし」とする（センサーは1分ごとに送信）
 const STALE_MS = 10 * 60 * 1000;
+// 外気のデータがこの時間届いていなければ、外気センサーは置かれていないとみなして外気欄を出さない
+// （outdoor に送るセンサーを置けば、自動で表示される）
+const OUTDOOR_HIDE_MS = 24 * 60 * 60 * 1000;
 // 推移グラフを開いたまま放置したら自動で閉じる
 const DETAIL_TIMEOUT_MS = 60 * 1000;
 // 推移グラフの最大点数（Raspberry Pi で描画を軽くするため間引く）
@@ -318,6 +321,8 @@ const Display = () => {
   }, [locationsKey]);
 
   const houseList = houses || [];
+  const outdoor = envData.outdoor;
+  const showOutdoor = outdoor?.timestamp instanceof Date && now - outdoor.timestamp.getTime() < OUTDOOR_HIDE_MS;
   const layout = getGridLayout(houseList.length);
   const nowDate = new Date(now);
 
@@ -342,7 +347,7 @@ const Display = () => {
       </header>
 
       <main className="flex-1 min-h-0 flex gap-3 p-3">
-        <OutdoorPanel data={envData.outdoor} now={now} onSelect={setSelected} />
+        {showOutdoor && <OutdoorPanel data={outdoor} now={now} onSelect={setSelected} />}
 
         {houses === null ? (
           <div className="flex-1 flex items-center justify-center text-xl text-gray-500">読み込み中…</div>
