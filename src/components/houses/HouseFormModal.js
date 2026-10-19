@@ -3,10 +3,12 @@ import { format } from 'date-fns';
 import { X, Trash2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createHouse, updateHouse, deleteHouse } from '../../firestoreUtils';
+import { getHouseThresholds } from '../../utils/environmentalRanges';
 
 const STATUS_OPTIONS = ['生育中', '収穫中', '準備中', '休止中'];
 
-const inputClass = 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500';
+const fieldClass = 'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500';
+const inputClass = `mt-1 ${fieldClass}`;
 
 const toFormValues = (house) => ({
   id: house?.id || '',
@@ -15,8 +17,38 @@ const toFormValues = (house) => ({
   status: house?.status || '生育中',
   plantDate: house?.plantDate instanceof Date ? format(house.plantDate, 'yyyy-MM-dd') : '',
   area: house?.area ?? '',
-  notes: house?.notes || ''
+  notes: house?.notes || '',
+  // 未設定のハウスは既定値を初期値として表示する
+  thresholds: (() => {
+    const t = getHouseThresholds(house);
+    return {
+      temperature: { min: String(t.temperature.min), max: String(t.temperature.max) },
+      humidity: { min: String(t.humidity.min), max: String(t.humidity.max) }
+    };
+  })()
 });
+
+const THRESHOLD_FIELDS = [
+  { key: 'temperature', label: '気温', unit: '°C', step: '0.1' },
+  { key: 'humidity', label: '湿度', unit: '%', step: '1' }
+];
+
+// 閾値の入力チェック。問題があればメッセージを返す
+const validateThresholds = (thresholds) => {
+  for (const { key, label } of THRESHOLD_FIELDS) {
+    const { min, max } = thresholds[key];
+    if (min === '' || max === '' || Number.isNaN(Number(min)) || Number.isNaN(Number(max))) {
+      return `${label}の下限と上限を数値で入力してください`;
+    }
+    if (Number(min) >= Number(max)) {
+      return `${label}の下限は上限より小さくしてください`;
+    }
+  }
+  if (Number(thresholds.humidity.min) < 0 || Number(thresholds.humidity.max) > 100) {
+    return '湿度は 0〜100% の範囲で入力してください';
+  }
+  return null;
+};
 
 // ハウスIDは Firestore のドキュメントIDとセンサーの location に使うため制限する
 const validateHouseId = (houseId) => {
@@ -51,6 +83,16 @@ const HouseFormModal = ({ isOpen, onClose, house = null, onSaved, onDeleted }) =
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleThresholdChange = (key, bound, value) => {
+    setFormData(prev => ({
+      ...prev,
+      thresholds: {
+        ...prev.thresholds,
+        [key]: { ...prev.thresholds[key], [bound]: value }
+      }
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -65,6 +107,11 @@ const HouseFormModal = ({ isOpen, onClose, house = null, onSaved, onDeleted }) =
     }
     if (!formData.name.trim()) {
       setError('表示名を入力してください');
+      return;
+    }
+    const thresholdError = validateThresholds(formData.thresholds);
+    if (thresholdError) {
+      setError(thresholdError);
       return;
     }
 
@@ -212,6 +259,38 @@ const HouseFormModal = ({ isOpen, onClose, house = null, onSaved, onDeleted }) =
                 step="any"
               />
             </div>
+
+            <fieldset className="border border-gray-200 rounded-md p-3">
+              <legend className="px-1 text-sm font-medium text-gray-700">アラートの閾値（この範囲を外れたら通知）</legend>
+              <div className="space-y-3">
+                {THRESHOLD_FIELDS.map(({ key, label, unit, step }) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className="w-10 flex-shrink-0 whitespace-nowrap text-sm text-gray-700">{label}</span>
+                    <input
+                      type="number"
+                      step={step}
+                      aria-label={`${label}の下限`}
+                      value={formData.thresholds[key].min}
+                      onChange={(e) => handleThresholdChange(key, 'min', e.target.value)}
+                      className={fieldClass}
+                    />
+                    <span className="text-gray-500">〜</span>
+                    <input
+                      type="number"
+                      step={step}
+                      aria-label={`${label}の上限`}
+                      value={formData.thresholds[key].max}
+                      onChange={(e) => handleThresholdChange(key, 'max', e.target.value)}
+                      className={fieldClass}
+                    />
+                    <span className="w-6 flex-shrink-0 text-sm text-gray-500">{unit}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                ダッシュボードと7インチ画面の表示、自動アラートの判定に使います。
+              </p>
+            </fieldset>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">備考</label>

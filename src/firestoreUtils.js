@@ -25,7 +25,8 @@ import {
   onSnapshot,
   Timestamp,
   arrayUnion,
-  arrayRemove 
+  arrayRemove,
+  writeBatch
 } from 'firebase/firestore';
 
 // モックFirestoreユーティリティ関数をインポート
@@ -380,6 +381,17 @@ const toHouseDocument = (houseData) => ({
   plantDate: houseData.plantDate ? Timestamp.fromDate(new Date(houseData.plantDate)) : null,
   area: houseData.area === '' || houseData.area == null ? null : Number(houseData.area),
   notes: houseData.notes?.trim() || '',
+  // アラートと画面表示の判定に使う閾値（フォームの文字列を数値にして保存）
+  thresholds: {
+    temperature: {
+      min: Number(houseData.thresholds.temperature.min),
+      max: Number(houseData.thresholds.temperature.max)
+    },
+    humidity: {
+      min: Number(houseData.thresholds.humidity.min),
+      max: Number(houseData.thresholds.humidity.max)
+    }
+  },
   updatedAt: getServerTimestamp()
 });
 
@@ -796,7 +808,7 @@ export const getAlertsByHouse = async (houseId) => {
  * @param {Object} resolutionData - 解決情報
  * @returns {Promise<boolean>} 成功した場合はtrue
  */
-export const resolveAlert = async (alertId, resolutionData) => {
+export const resolveAlert = async (alertId, resolutionData = {}) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
     return mockFirestoreUtils.resolveAlert(alertId, resolutionData);
@@ -806,6 +818,7 @@ export const resolveAlert = async (alertId, resolutionData) => {
     const alertRef = doc(db, 'alerts', alertId);
     await updateDoc(alertRef, {
       resolved: true,
+      status: 'resolved',
       resolvedAt: getServerTimestamp(),
       resolution: resolutionData.resolution || '',
       resolvedBy: resolutionData.resolvedBy || '',
@@ -817,6 +830,90 @@ export const resolveAlert = async (alertId, resolutionData) => {
     console.error(`アラート ${alertId} の解決中にエラーが発生しました:`, error);
     throw error;
   }
+};
+
+/**
+ * 複数のアラートをまとめて解決済みにする
+ * @param {Array<string>} alertIds - アラートIDの配列
+ * @param {Object} resolutionData - 解決情報（resolution, resolvedBy）
+ * @returns {Promise<number>} 解決済みにした件数
+ */
+export const resolveAlerts = async (alertIds, resolutionData = {}) => {
+  if (isMockMode()) {
+    return mockFirestoreUtils.resolveAlerts && mockFirestoreUtils.resolveAlerts(alertIds, resolutionData);
+  }
+
+  // 1回のバッチは500件まで
+  for (let i = 0; i < alertIds.length; i += 450) {
+    const batch = writeBatch(db);
+    alertIds.slice(i, i + 450).forEach((alertId) => {
+      batch.update(doc(db, 'alerts', alertId), {
+        resolved: true,
+        status: 'resolved',
+        resolvedAt: getServerTimestamp(),
+        resolution: resolutionData.resolution || '',
+        resolvedBy: resolutionData.resolvedBy || '',
+        updatedAt: getServerTimestamp()
+      });
+    });
+    await batch.commit();
+  }
+  return alertIds.length;
+};
+
+/**
+ * アラートへの対応内容（対応中など）を記録する
+ * @param {string} alertId - アラートID
+ * @param {Object} responseData - status, response, notes, respondedBy
+ * @returns {Promise<boolean>} 成功した場合はtrue
+ */
+export const updateAlertResponse = async (alertId, responseData) => {
+  if (isMockMode()) {
+    return mockFirestoreUtils.updateAlertResponse && mockFirestoreUtils.updateAlertResponse(alertId, responseData);
+  }
+
+  await updateDoc(doc(db, 'alerts', alertId), {
+    status: responseData.status,
+    response: responseData.response || '',
+    notes: responseData.notes || '',
+    respondedBy: responseData.respondedBy || '',
+    responseAt: getServerTimestamp(),
+    updatedAt: getServerTimestamp()
+  });
+  return true;
+};
+
+/**
+ * 未解決のアラートをリアルタイムに監視する（新しい順）
+ * @param {Function} callback - アラートの配列を受け取るコールバック
+ * @param {number} limitCount - 取得する最大件数
+ * @returns {Function} 監視を解除するための関数
+ */
+export const subscribeToUnresolvedAlerts = (callback, limitCount = 100) => {
+  if (isMockMode()) {
+    getUnresolvedAlerts(limitCount).then(callback);
+    return () => {};
+  }
+
+  const alertsQuery = query(
+    collection(db, 'alerts'),
+    where('resolved', '==', false),
+    orderBy('timestamp', 'desc'),
+    limit(limitCount)
+  );
+
+  return onSnapshot(
+    alertsQuery,
+    (querySnapshot) => {
+      callback(querySnapshot.docs.map(d => ({
+        id: d.id,
+        ...formatFirestoreData(d.data())
+      })));
+    },
+    (error) => {
+      console.error('アラートの監視中にエラーが発生しました:', error);
+    }
+  );
 };
 
 // ============== 作物履歴関連の関数 ==============

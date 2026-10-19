@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, Loader2, Bell, Filter, PlusCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { AlertCircle, Loader2, Bell, Filter, PlusCircle, CheckCheck } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import MobileNav from '../components/mobile/MobileNav';
 import TabNavigation from '../components/mobile/TabNavigation';
@@ -8,22 +9,26 @@ import FloatingActionButton from '../components/mobile/FloatingActionButton';
 
 // Firestoreユーティリティをインポート
 import { 
-  getUnresolvedAlerts,
-  getAllHouses,
+  subscribeToUnresolvedAlerts,
+  subscribeToHouses,
   resolveAlert,
-  formatFirestoreData 
+  resolveAlerts,
+  updateAlertResponse
 } from '../firestoreUtils';
+import { normalizeAlert } from '../utils/alerts';
+import { useAuth } from '../contexts/AuthContext';
 
 // コンポーネントのインポート
 import AlertsTable from '../components/alerts/AlertsTable';
 import AlertsFilter from '../components/alerts/AlertsFilter';
 import ViewAlertModal from '../components/alerts/ViewAlertModal';
 import RespondAlertModal from '../components/alerts/RespondAlertModal';
-import AlertSettings from '../components/alerts/settings/AlertSettings';
+import AlertThresholdOverview from '../components/alerts/AlertThresholdOverview';
 
 const Alerts = () => {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const userName = currentUser?.displayName || currentUser?.email || '';
   const isMobile = useMediaQuery('(max-width: 768px)');
   const queryParams = new URLSearchParams(location.search);
   const alertIdFromUrl = queryParams.get('id');
@@ -56,85 +61,18 @@ const Alerts = () => {
   
   const [responseData, setResponseData] = useState(initialResponseData);
 
-  // Firestoreからデータを取得
+  // 未解決のアラートとハウス一覧をリアルタイムに監視
+  // （Raspberry Pi の見張りプログラムが追加・自動解決したアラートもすぐ反映される）
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // アラートとハウスの情報を取得
-        const [alertsData, housesData] = await Promise.all([
-          getUnresolvedAlerts(100), // より多くのアラートを取得
-          getAllHouses()
-        ]);
-        
-        // データをフォーマット
-        if (alertsData && alertsData.length > 0) {
-          const formattedAlerts = alertsData.map(alert => formatFirestoreData(alert));
-          setAlerts(formattedAlerts);
-        } else {
-          // ダミーデータ（後ほど削除）
-          const dummyAlerts = [
-            { 
-              id: 'alert1', 
-              title: '温室ハウス1の温度が高すぎます', 
-              description: '設定温度を28℃としていますが、31℃を超えています',
-              type: 'temperature',
-              severity: 'high',
-              status: 'pending', 
-              houseId: 'house1',
-              houseName: '温室ハウス1',
-              timestamp: new Date(2025, 3, 5, 9, 23),
-              value: 31.5,
-              threshold: 28,
-              resolved: false
-            },
-            { 
-              id: 'alert2', 
-              title: '温室ハウス3の湿度が低すぎます', 
-              description: '湿度が40%を下回っています。通常は60-70%を維持してください',
-              type: 'humidity',
-              severity: 'medium',
-              status: 'in-progress', 
-              houseId: 'house3',
-              houseName: '温室ハウス3',
-              timestamp: new Date(2025, 3, 5, 8, 45),
-              value: 40,
-              threshold: 60,
-              resolved: false
-            },
-            { 
-              id: 'alert3', 
-              title: '温室ハウス5の土壌水分が低下しています', 
-              description: '土壌水分が40%を下回っています。灌水が必要です',
-              type: 'soil',
-              severity: 'low',
-              status: 'pending', 
-              houseId: 'house5',
-              houseName: '温室ハウス5',
-              timestamp: new Date(2025, 3, 4, 22, 15),
-              value: 35,
-              threshold: 40,
-              resolved: false
-            }
-          ];
-          setAlerts(dummyAlerts);
-        }
-        
-        // ハウスのデータをセット
-        if (housesData && housesData.length > 0) {
-          setHouses(housesData);
-        }
-      } catch (err) {
-        console.error('データの取得中にエラーが発生しました:', err);
-        setError('データの取得中にエラーが発生しました。');
-      } finally {
-        setLoading(false);
-      }
+    const unsubscribeAlerts = subscribeToUnresolvedAlerts((alertsData) => {
+      setAlerts(alertsData.map(normalizeAlert));
+      setLoading(false);
+    });
+    const unsubscribeHouses = subscribeToHouses(setHouses);
+    return () => {
+      unsubscribeAlerts();
+      unsubscribeHouses();
     };
-    
-    // 初期データの取得
-    fetchData();
   }, []);
 
   // クエリパラメータからアラートIDを取得した場合、対応するアラートを自動的に表示
@@ -231,36 +169,17 @@ const Alerts = () => {
   };
   
   // アラートのステータス変更ハンドラー
+  // 一覧はリアルタイム監視しているので、保存すれば画面にも反映される
   const handleStatusChange = async (alertId, newStatus) => {
     try {
-      setLoading(true);
-      
-      // アラートが解決済みとしてマークされた場合
       if (newStatus === 'resolved') {
-        await resolveAlert(alertId);
+        await resolveAlert(alertId, { resolvedBy: userName });
       } else {
-        // 他のステータス更新処理（未実装）
+        await updateAlertResponse(alertId, { status: newStatus, respondedBy: userName });
       }
-      
-      // UIの更新
-      setAlerts(prevAlerts => 
-        prevAlerts.map(alert => 
-          alert.id === alertId 
-            ? { 
-                ...alert, 
-                status: newStatus,
-                resolved: newStatus === 'resolved',
-                resolvedAt: newStatus === 'resolved' ? new Date() : null
-              } 
-            : alert
-        )
-      );
-      
     } catch (err) {
       console.error('アラートの更新中にエラーが発生しました:', err);
       setError('アラートの更新中にエラーが発生しました');
-    } finally {
-      setLoading(false);
     }
   };
   
@@ -270,47 +189,39 @@ const Alerts = () => {
     if (!selectedAlert) return;
     
     try {
-      setLoading(true);
-      
-      const now = new Date();
-      const isResolved = responseData.status === 'resolved';
-      
-      // アラートの状態を更新
-      const updatedAlert = {
-        ...selectedAlert,
-        status: responseData.status,
-        response: responseData.response,
-        responseAt: now,
-        respondedBy: '管理者', // 実際にはログインユーザー名などを使用
-        notes: responseData.notes,
-        resolved: isResolved,
-        resolvedAt: isResolved ? now : null
-      };
-      
-      // アラートが解決済みとしてマークされた場合
-      if (isResolved) {
-        await resolveAlert(selectedAlert.id);
+      if (responseData.status === 'resolved') {
+        await resolveAlert(selectedAlert.id, {
+          resolution: responseData.response,
+          actionTaken: responseData.notes,
+          resolvedBy: userName
+        });
       } else {
-        // 他のステータス更新処理（未実装）
+        await updateAlertResponse(selectedAlert.id, { ...responseData, respondedBy: userName });
       }
-      
-      // UIの更新
-      setAlerts(prevAlerts => 
-        prevAlerts.map(alert => 
-          alert.id === selectedAlert.id ? updatedAlert : alert
-        )
-      );
-      
-      // モーダルを閉じる
       setIsRespondModalOpen(false);
-      
-      // 成功メッセージ
-      alert('アラートへの対応を記録しました');
+      toast.success('アラートへの対応を記録しました');
     } catch (err) {
       console.error('アラートの更新中にエラーが発生しました:', err);
       setError('アラートの更新中にエラーが発生しました');
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  // 表示中の未解決アラートをまとめて解決済みにする（以前のサンプルデータの片付けなど）
+  const unresolvedVisible = filteredAlerts.filter(alert => alert.status !== 'resolved');
+  const handleResolveAll = async () => {
+    if (unresolvedVisible.length === 0) return;
+    if (!window.confirm(`表示中の ${unresolvedVisible.length} 件のアラートをすべて解決済みにしますか？`)) {
+      return;
+    }
+    try {
+      await resolveAlerts(
+        unresolvedVisible.map(alert => alert.id),
+        { resolution: '一括で解決済みにしました', resolvedBy: userName }
+      );
+      toast.success(`${unresolvedVisible.length} 件のアラートを解決済みにしました`);
+    } catch (err) {
+      console.error('アラートの一括解決中にエラーが発生しました:', err);
+      setError('アラートの一括解決中にエラーが発生しました');
     }
   };
 
@@ -326,6 +237,8 @@ const Alerts = () => {
   const handleFabAction = (action) => {
     if (action.id === 'settings') {
       setActiveView('settings');
+    } else if (action.id === 'resolve-all') {
+      handleResolveAll();
     } else if (action.id === 'filter') {
       // モバイル用フィルター表示（実装は省略）
     }
@@ -416,6 +329,14 @@ const Alerts = () => {
                 <span className="text-sm text-red-600">
                   未対応: {alerts.filter(a => a.status === 'pending').length} アラート
                 </span>
+                <button
+                  onClick={handleResolveAll}
+                  disabled={unresolvedVisible.length === 0}
+                  className="ml-4 px-3 py-1 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 flex items-center"
+                >
+                  <CheckCheck className="w-4 h-4 mr-1" />
+                  表示中をすべて解決済みにする
+                </button>
               </div>
             )}
             
@@ -430,7 +351,7 @@ const Alerts = () => {
                 onClick={() => setActiveView('settings')}
                 className={`px-3 py-1 text-sm rounded-md ${activeView === 'settings' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}
               >
-                アラート設定
+                閾値の設定
               </button>
             </div>
           </div>
@@ -517,7 +438,7 @@ const Alerts = () => {
           )}
         </>
       ) : (
-        <AlertSettings />
+        <AlertThresholdOverview houses={houses} />
       )}
 
       {/* モバイル用フローティングアクションボタン */}
@@ -525,7 +446,8 @@ const Alerts = () => {
         <FloatingActionButton 
           actions={[
             { id: 'filter', label: 'フィルター', icon: <Filter size={20} /> },
-            { id: 'settings', label: 'アラート設定', icon: <PlusCircle size={20} /> }
+            { id: 'resolve-all', label: 'すべて解決済みにする', icon: <CheckCheck size={20} /> },
+            { id: 'settings', label: '閾値の設定', icon: <PlusCircle size={20} /> }
           ]}
           onAction={handleFabAction}
         />

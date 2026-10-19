@@ -33,3 +33,7 @@ firebase-debug.log
 
 # Pico W のパスワード類
 pico/secrets.py
+
+# Python
+__pycache__/
+raspberry-pi/serviceAccount.json

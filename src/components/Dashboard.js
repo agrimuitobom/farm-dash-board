@@ -19,10 +19,11 @@ import {
   getLatestEnvironmentalData, 
   getEnvironmentalHistory,
   getPendingTasks,
-  getUnresolvedAlerts,
+  subscribeToUnresolvedAlerts,
   formatFirestoreData,
   subscribeToEnvironmentalData
 } from '../firestoreUtils';
+import { normalizeAlert } from '../utils/alerts';
 
 // 数値でない（センサーが計測していない）項目は '--' と表示する
 const formatValue = (value, digits) =>
@@ -218,38 +219,6 @@ const Dashboard = () => {
           ]);
         }
         
-        // アラート情報を取得
-        try {
-          const alertsData = await getUnresolvedAlerts(5);
-          if (alertsData && alertsData.length > 0) {
-            const formattedAlerts = alertsData.map(alert => {
-              const formattedAlert = formatFirestoreData(alert);
-              return {
-                id: formattedAlert.id,
-                title: formattedAlert.title,
-                timestamp: formattedAlert.timestamp ? formattedAlert.timestamp.toLocaleString() : '不明',
-                severity: formattedAlert.severity || '注意'
-              };
-            });
-            setAlerts(formattedAlerts);
-          } else {
-            // ダミーのアラートデータを設定
-            setAlerts([
-              { id: 1, title: '温室ハウス1の温度が高すぎます', timestamp: '2025-03-31 09:23', severity: '警告' },
-              { id: 2, title: '温室ハウス3の湿度が低すぎます', timestamp: '2025-03-31 08:45', severity: '注意' },
-              { id: 3, title: '温室ハウス5の土壌水分が低下しています', timestamp: '2025-03-30 22:15', severity: '警告' },
-            ]);
-          }
-        } catch (err) {
-          console.error('アラート取得エラー:', err);
-          // ダミーデータで続行
-          setAlerts([
-            { id: 1, title: '温室ハウス1の温度が高すぎます', timestamp: '2025-03-31 09:23', severity: '警告' },
-            { id: 2, title: '温室ハウス3の湿度が低すぎます', timestamp: '2025-03-31 08:45', severity: '注意' },
-            { id: 3, title: '温室ハウス5の土壌水分が低下しています', timestamp: '2025-03-30 22:15', severity: '警告' },
-          ]);
-        }
-        
         setLoading(false);
       } catch (err) {
         console.error('ダッシュボードデータ取得エラー:', err);
@@ -266,6 +235,12 @@ const Dashboard = () => {
     // クリーンアップ関数
     return () => unsubscribeEnvironmental();
   }, []);
+
+  // 未解決のアラート（新しい順に5件）をリアルタイム監視
+  useEffect(() => subscribeToUnresolvedAlerts(
+    (alertsData) => setAlerts(alertsData.map(normalizeAlert)),
+    5
+  ), []);
 
   // 各ハウスの環境データをリアルタイム監視（location がハウスIDのデータ）
   const houseIdsKey = isUsingDummyData ? '' : houses.map(house => house.id).join('\n');
@@ -483,11 +458,13 @@ const Dashboard = () => {
                     <div key={alert.id} className="py-3">
                       <div className="flex items-start">
                         <span className={`p-1 rounded-full mr-2 ${
-                          alert.severity === '警告' ? 'bg-red-500' : 'bg-yellow-500'
+                          alert.severity === 'high' ? 'bg-red-500' : 'bg-yellow-500'
                         }`}></span>
                         <div>
                           <h4 className="font-medium">{alert.title}</h4>
-                          <p className="text-sm text-gray-500">{alert.timestamp}</p>
+                          <p className="text-sm text-gray-500">
+                            {alert.timestamp instanceof Date ? alert.timestamp.toLocaleString('ja-JP') : ''}
+                          </p>
                         </div>
                       </div>
                     </div>

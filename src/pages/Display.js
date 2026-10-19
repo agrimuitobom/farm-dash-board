@@ -20,7 +20,7 @@ import {
   subscribeToEnvironmentalData,
   getEnvironmentalHistory
 } from '../firestoreUtils';
-import { environmentalRanges } from '../utils/environmentalRanges';
+import { getHouseThresholds } from '../utils/environmentalRanges';
 import { isKioskMode } from '../utils/kioskMode';
 
 // この時間データが来なければ「通信なし」とする（センサーは1分ごとに送信）
@@ -43,7 +43,8 @@ const STATUS_STYLES = {
   none: { color: '#d1d5db', Icon: HelpCircle }
 };
 
-const getStatus = (data, now) => {
+// thresholds はハウスごとの閾値（getHouseThresholds の戻り値）
+const getStatus = (data, now, thresholds) => {
   if (!data || !(data.timestamp instanceof Date)) {
     return { key: 'none', label: 'データなし' };
   }
@@ -51,7 +52,7 @@ const getStatus = (data, now) => {
     return { key: 'stale', label: '通信なし' };
   }
 
-  const { temperature: t, humidity: h } = environmentalRanges;
+  const { temperature: t, humidity: h } = thresholds;
   const issues = [];
   if (typeof data.temperature === 'number') {
     if (data.temperature > t.max) issues.push({ key: 'critical', label: '高温' });
@@ -109,7 +110,7 @@ const TILE_TEXT = {
 };
 
 const HouseTile = ({ house, data, now, size, onSelect }) => {
-  const status = getStatus(data, now);
+  const status = getStatus(data, now, getHouseThresholds(house));
   const text = TILE_TEXT[size];
   return (
     <button
@@ -147,7 +148,8 @@ const HouseTile = ({ house, data, now, size, onSelect }) => {
 };
 
 const OutdoorPanel = ({ data, now, onSelect }) => {
-  const status = getStatus(data, now);
+  // 外気はハウスではないので既定の範囲で判定する
+  const status = getStatus(data, now, getHouseThresholds(null));
   return (
     <button
       type="button"

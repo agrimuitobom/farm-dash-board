@@ -1,0 +1,14 @@
+[Unit]
+Description=Farm DHT22 sensor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=saino-rasp22
+WorkingDirectory=/home/saino-rasp22/farm-sensor
+ExecStart=/home/saino-rasp22/farm-sensor/venv/bin/python sensor.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
