@@ -1344,7 +1344,7 @@ export const deleteTasks = async (taskIds) => {
  * @param {number} limit - 取得するタスクの最大数
  * @returns {Promise<Array>} タスク情報の配列
  */
-export const getTasks = async (limitCount = 100) => {
+export const getTasks = async (limitCount = 1000) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
     return mockFirestoreUtils.getTasks && mockFirestoreUtils.getTasks(limitCount);
@@ -1359,10 +1359,13 @@ export const getTasks = async (limitCount = 100) => {
     
     const querySnapshot = await getDocs(tasksQuery);
     
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
+    return querySnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...formatFirestoreData(doc.data())
+      }))
+      // 以前の削除処理は削除フラグを立てるだけだったので、そのタスクも除外する
+      .filter(task => !task.deleted);
   } catch (error) {
     console.error('タスク一覧の取得中にエラーが発生しました:', error);
     throw error;

@@ -25,6 +25,7 @@ import {
   subscribeToEnvironmentalData
 } from '../firestoreUtils';
 import { normalizeAlert } from '../utils/alerts';
+import { normalizeTask, PRIORITY_LABELS, PRIORITY_CLASSES } from '../utils/tasks';
 
 // 数値でない（センサーが計測していない）項目は '--' と表示する
 const formatValue = (value, digits) =>
@@ -168,16 +169,7 @@ const Dashboard = () => {
         try {
           const tasksData = await getPendingTasks(5);
           if (tasksData && tasksData.length > 0) {
-            const formattedTasks = tasksData.map(task => {
-              const formattedTask = formatFirestoreData(task);
-              return {
-                id: formattedTask.id,
-                title: formattedTask.title,
-                dueDate: formattedTask.dueDate ? formattedTask.dueDate.toLocaleDateString() : '未設定',
-                priority: formattedTask.priority || '中'
-              };
-            });
-            setTasks(formattedTasks);
+            setTasks(tasksData.map(task => normalizeTask(formatFirestoreData(task))));
           }
         } catch (err) {
           console.error('タスク取得エラー:', err);
@@ -457,7 +449,7 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-white rounded-lg shadow p-4">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">今日の作業</h3>
+                <h3 className="text-lg font-semibold">未完了の作業</h3>
                 <Link to="/calendar" className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center">
                   <Calendar className="h-4 w-4 mr-1" /> カレンダーを表示
                 </Link>
@@ -465,21 +457,26 @@ const Dashboard = () => {
               
               <div className="divide-y">
                 {tasks.length > 0 ? (
-                  tasks.map(task => (
-                    <div key={task.id} className="py-3 flex justify-between items-center">
-                      <div>
-                        <h4 className="font-medium">{task.title}</h4>
-                        <p className="text-sm text-gray-500">期限: {task.dueDate}</p>
+                  tasks.map(task => {
+                    // 期限の日が終わっていれば期限切れ
+                    const overdue = task.dueDate && task.dueDate < new Date(new Date().setHours(0, 0, 0, 0));
+                    return (
+                      <div key={task.id} className="py-3 flex justify-between items-center">
+                        <div>
+                          <h4 className="font-medium">{task.title}</h4>
+                          <p className={`text-sm ${overdue ? 'text-red-600' : 'text-gray-500'}`}>
+                            期限: {task.dueDate ? task.dueDate.toLocaleDateString('ja-JP') : '未設定'}
+                            {overdue && '（期限切れ）'}
+                          </p>
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${PRIORITY_CLASSES[task.priority] || PRIORITY_CLASSES.medium}`}>
+                          {PRIORITY_LABELS[task.priority] || '中'}優先
+                        </span>
                       </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        task.priority === '高' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {task.priority}優先
-                      </span>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
-                  <p className="py-3 text-gray-500">予定されている作業はありません</p>
+                  <p className="py-3 text-gray-500">未完了の作業はありません</p>
                 )}
               </div>
             </div>

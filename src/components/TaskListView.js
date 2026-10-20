@@ -1,9 +1,14 @@
 // src/components/TaskListView.js
-import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, User, Clock, AlertTriangle, Filter, Search, ChevronDown } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Calendar as CalendarIcon, User, Filter, Search, ChevronDown, Trash2 } from 'lucide-react';
+import { isTaskDone, PRIORITY_LABELS, PRIORITY_ORDER, PRIORITY_CLASSES } from '../utils/tasks';
 
-const TaskListView = ({ tasks, onEditTask, onCompleteTask }) => {
-  const [filteredTasks, setFilteredTasks] = useState([]);
+/**
+ * 作業の一覧（tasks は utils/tasks.js の normalizeTask でそろえたもの）
+ * チェックを付けた作業は onDeleteTasks でまとめて削除できる
+ */
+const TaskListView = ({ tasks, onEditTask, onToggleComplete, onDeleteTask, onDeleteTasks }) => {
+  const [selectedIds, setSelectedIds] = useState([]);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterAssignee, setFilterAssignee] = useState('all');
@@ -12,83 +17,68 @@ const TaskListView = ({ tasks, onEditTask, onCompleteTask }) => {
   const [sortOrder, setSortOrder] = useState('asc');
   const [showFilters, setShowFilters] = useState(false);
 
-  // ダミーデータ（実際のデータがない場合）
-  const dummyTasks = [
-    { id: 1, title: '温室ハウス2の水やり', priority: '高', assignedTo: '山田', dueDate: '2025-06-01', status: 'pending', description: '朝と夕方の2回実施' },
-    { id: 2, title: 'トマトの収穫', priority: '中', assignedTo: '佐藤', dueDate: '2025-06-02', status: 'pending', description: '赤く熟したものを収穫' },
-    { id: 3, title: '温室ハウス4の追肥', priority: '中', assignedTo: '鈴木', dueDate: '2025-06-03', status: 'completed', description: '液肥を1000倍希釈で散布' },
-    { id: 4, title: '温室ハウス1の害虫防除', priority: '高', assignedTo: '山田', dueDate: '2025-06-04', status: 'pending', description: 'アブラムシの防除' },
-    { id: 5, title: '温室ハウス3の誘引作業', priority: '低', assignedTo: '田中', dueDate: '2025-06-05', status: 'pending', description: 'キュウリの蔓の誘引' },
-    { id: 6, title: 'レタスの定植', priority: '中', assignedTo: '佐藤', dueDate: '2025-06-10', status: 'pending', description: '苗150本の定植' },
-    { id: 7, title: 'ナスの剪定', priority: '低', assignedTo: '鈴木', dueDate: '2025-06-15', status: 'pending', description: '側枝の整理' },
-    { id: 8, title: 'キュウリの害虫防除', priority: '高', assignedTo: '山田', dueDate: '2025-06-15', status: 'pending', description: 'ハダニの防除' },
-    { id: 9, title: 'パプリカの収穫', priority: '中', assignedTo: '田中', dueDate: '2025-06-20', status: 'pending', description: '色づいたものを収穫' },
-    { id: 10, title: '土壌分析', priority: '中', assignedTo: '佐藤', dueDate: '2025-06-25', status: 'pending', description: 'pH測定と栄養分析' },
-    { id: 11, title: '灌水システムの点検', priority: '高', assignedTo: '山田', dueDate: '2025-06-28', status: 'pending', description: 'ポンプとタイマーの動作確認' },
-    { id: 12, title: '温室の清掃', priority: '低', assignedTo: '全員', dueDate: '2025-06-30', status: 'pending', description: '月末の定期清掃' }
-  ];
-
-  const displayTasks = tasks.length > 0 ? tasks : dummyTasks;
-
   // ユニークな担当者リストを取得
-  const uniqueAssignees = [...new Set(displayTasks.map(task => task.assignedTo))];
+  const uniqueAssignees = [...new Set(tasks.map(task => task.assignedTo).filter(Boolean))];
 
   // フィルタリングとソート
-  useEffect(() => {
-    let filtered = displayTasks.filter(task => {
-      const matchesStatus = filterStatus === 'all' || task.status === filterStatus;
+  const filteredTasks = useMemo(() => {
+    const keyword = searchTerm.toLowerCase();
+    const filtered = tasks.filter(task => {
+      const matchesStatus = filterStatus === 'all'
+        || (filterStatus === 'completed' ? isTaskDone(task) : !isTaskDone(task));
       const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
       const matchesAssignee = filterAssignee === 'all' || task.assignedTo === filterAssignee;
-      const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           task.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = task.title.toLowerCase().includes(keyword) ||
+                           task.description.toLowerCase().includes(keyword);
       
       return matchesStatus && matchesPriority && matchesAssignee && matchesSearch;
     });
 
-    // ソート
-    filtered.sort((a, b) => {
-      let aValue, bValue;
-      
+    const valueOf = (task) => {
       switch (sortBy) {
         case 'dueDate':
-          aValue = new Date(a.dueDate);
-          bValue = new Date(b.dueDate);
-          break;
+          return task.dueDate ? task.dueDate.getTime() : Infinity;
         case 'priority':
-          const priorityOrder = { '高': 3, '中': 2, '低': 1 };
-          aValue = priorityOrder[a.priority] || 0;
-          bValue = priorityOrder[b.priority] || 0;
-          break;
+          return PRIORITY_ORDER[task.priority] || 0;
         case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
-          break;
+          return task.title.toLowerCase();
         case 'assignedTo':
-          aValue = a.assignedTo.toLowerCase();
-          bValue = b.assignedTo.toLowerCase();
-          break;
+          return task.assignedTo.toLowerCase();
         default:
           return 0;
       }
-      
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
+    };
+    return filtered.sort((a, b) => {
+      const aValue = valueOf(a);
+      const bValue = valueOf(b);
+      if (aValue === bValue) return 0;
+      const ascending = aValue > bValue ? 1 : -1;
+      return sortOrder === 'asc' ? ascending : -ascending;
     });
+  }, [tasks, filterStatus, filterPriority, filterAssignee, searchTerm, sortBy, sortOrder]);
 
-    setFilteredTasks(filtered);
-  }, [displayTasks, filterStatus, filterPriority, filterAssignee, searchTerm, sortBy, sortOrder]);
+  // 選択（表示中の作業だけを対象にする）
+  const visibleIds = filteredTasks.map(task => task.id);
+  const selectedVisibleIds = visibleIds.filter(id => selectedIds.includes(id));
+  const allSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+  };
+  const toggleSelectAll = (checked) => {
+    setSelectedIds(prev => (checked
+      ? [...new Set([...prev, ...visibleIds])]
+      : prev.filter(id => !visibleIds.includes(id))));
+  };
+  const handleDeleteSelected = async () => {
+    if (onDeleteTasks && await onDeleteTasks(selectedVisibleIds)) {
+      setSelectedIds(prev => prev.filter(id => !selectedVisibleIds.includes(id)));
+    }
+  };
 
   // 日付を表示用の文字列に変換する関数
-  const formatDate = (date) => {
-    if (date instanceof Date) {
-      return date.toLocaleDateString('ja-JP');
-    }
-    return date; // 既に文字列の場合はそのまま返す
-  };
+  const formatDate = (date) => (date instanceof Date ? date.toLocaleDateString('ja-JP') : '期限なし');
   const getDueDateColor = (dueDate) => {
+    if (!dueDate) return 'text-gray-600';
     const today = new Date();
     const due = new Date(dueDate);
     const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
@@ -102,6 +92,7 @@ const TaskListView = ({ tasks, onEditTask, onCompleteTask }) => {
 
   // 期限のラベル
   const getDueDateLabel = (dueDate) => {
+    if (!dueDate) return '';
     const today = new Date();
     const due = new Date(dueDate);
     const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
@@ -194,9 +185,9 @@ const TaskListView = ({ tasks, onEditTask, onCompleteTask }) => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 >
                   <option value="all">すべて</option>
-                  <option value="高">高</option>
-                  <option value="中">中</option>
-                  <option value="低">低</option>
+                  <option value="high">高</option>
+                  <option value="medium">中</option>
+                  <option value="low">低</option>
                 </select>
               </div>
 
@@ -237,70 +228,94 @@ const TaskListView = ({ tasks, onEditTask, onCompleteTask }) => {
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">未完了</div>
           <div className="text-2xl font-bold text-orange-600">
-            {filteredTasks.filter(task => task.status === 'pending').length}
+            {filteredTasks.filter(task => !isTaskDone(task)).length}
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">完了済み</div>
           <div className="text-2xl font-bold text-green-600">
-            {filteredTasks.filter(task => task.status === 'completed').length}
+            {filteredTasks.filter(task => isTaskDone(task)).length}
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">期限今日まで</div>
           <div className="text-2xl font-bold text-red-600">
-            {filteredTasks.filter(task => {
-              const today = new Date();
-              const due = new Date(task.dueDate);
-              return due <= today && task.status === 'pending';
-            }).length}
+            {filteredTasks.filter(task => task.dueDate && task.dueDate <= new Date() && !isTaskDone(task)).length}
           </div>
         </div>
       </div>
 
       {/* タスクリスト */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
+        {/* まとめて選択・削除 */}
+        <div className="px-4 py-2 bg-gray-50 border-b flex items-center justify-between">
+          <label className="flex items-center text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={(e) => toggleSelectAll(e.target.checked)}
+              className="h-4 w-4 mr-2"
+            />
+            表示中の作業をすべて選択
+          </label>
+          {selectedVisibleIds.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              className="flex items-center px-3 py-1.5 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              選択した {selectedVisibleIds.length} 件を削除
+            </button>
+          )}
+        </div>
         <div className="divide-y divide-gray-200">
           {filteredTasks.length > 0 ? (
             filteredTasks.map((task) => (
-              <div key={task.id} className="p-4 hover:bg-gray-50 transition-colors">
+              <div
+                key={task.id}
+                className={`p-4 transition-colors ${selectedIds.includes(task.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+              >
                 <div className="flex items-center justify-between">
-                  <div className="flex-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(task.id)}
+                    onChange={() => toggleSelect(task.id)}
+                    aria-label={`${task.title}を選択`}
+                    className="h-4 w-4 mr-4 flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-3">
-                      <h3 className="text-lg font-medium text-gray-900">{task.title}</h3>
+                      <h3 className={`text-lg font-medium ${isTaskDone(task) ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                        {task.title}
+                      </h3>
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          task.priority === '高'
-                            ? 'bg-red-100 text-red-800'
-                            : task.priority === '中'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${PRIORITY_CLASSES[task.priority] || PRIORITY_CLASSES.medium}`}
                       >
-                        {task.priority}優先
+                        {PRIORITY_LABELS[task.priority] || '中'}優先
                       </span>
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          task.status === 'completed'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
+                          isTaskDone(task) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                         }`}
                       >
-                        {task.status === 'completed' ? '完了' : '未完了'}
+                        {isTaskDone(task) ? '完了' : '未完了'}
                       </span>
                     </div>
                     
-                    <p className="text-gray-600 mt-1">{task.description}</p>
+                    {task.description && <p className="text-gray-600 mt-1">{task.description}</p>}
                     
                     <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 mr-1" />
-                        {task.assignedTo}
-                      </div>
+                      {task.assignedTo && (
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 mr-1" />
+                          {task.assignedTo}
+                        </div>
+                      )}
                       <div className="flex items-center">
                         <CalendarIcon className="h-4 w-4 mr-1" />
-                        <span className={getDueDateColor(task.dueDate)}>
-                          {formatDate(task.dueDate)} ({getDueDateLabel(task.dueDate)})
+                        <span className={isTaskDone(task) ? 'text-gray-500' : getDueDateColor(task.dueDate)}>
+                          {formatDate(task.dueDate)}
+                          {!isTaskDone(task) && task.dueDate && ` (${getDueDateLabel(task.dueDate)})`}
                         </span>
                       </div>
                     </div>
@@ -313,14 +328,18 @@ const TaskListView = ({ tasks, onEditTask, onCompleteTask }) => {
                     >
                       編集
                     </button>
-                    {task.status === 'pending' && (
-                      <button
-                        onClick={() => onCompleteTask && onCompleteTask(task)}
-                        className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600"
-                      >
-                        完了
-                      </button>
-                    )}
+                    <button
+                      onClick={() => onToggleComplete && onToggleComplete(task)}
+                      className={`px-3 py-1 text-sm rounded ${isTaskDone(task) ? 'border border-gray-300 hover:bg-gray-50' : 'bg-green-500 text-white hover:bg-green-600'}`}
+                    >
+                      {isTaskDone(task) ? '未完了に戻す' : '完了'}
+                    </button>
+                    <button
+                      onClick={() => onDeleteTask && onDeleteTask(task)}
+                      className="px-3 py-1 text-sm border border-red-200 text-red-600 rounded hover:bg-red-50"
+                    >
+                      削除
+                    </button>
                   </div>
                 </div>
               </div>
