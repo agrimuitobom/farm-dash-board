@@ -698,10 +698,13 @@ export const getPendingTasks = async (limitCount = 10) => {
     
     const querySnapshot = await getDocs(tasksQuery);
     
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
+    return querySnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...formatFirestoreData(doc.data())
+      }))
+      // 以前の削除処理は削除フラグを立てるだけだったので、そのタスクも除外する
+      .filter(task => !task.deleted);
   } catch (error) {
     console.error('タスクの取得中にエラーが発生しました:', error);
     throw error;
@@ -1301,6 +1304,39 @@ export const updateTask = async (taskId, taskData) => {
     console.error(`タスク ${taskId} の更新中にエラーが発生しました:`, error);
     throw error;
   }
+};
+
+/**
+ * タスクを削除する
+ * @param {string} taskId - タスクID
+ * @returns {Promise<boolean>} 成功した場合はtrue
+ */
+export const deleteTask = async (taskId) => {
+  if (isMockMode()) {
+    return mockFirestoreUtils.deleteTask && mockFirestoreUtils.deleteTask(taskId);
+  }
+
+  await deleteDoc(doc(db, 'tasks', taskId));
+  return true;
+};
+
+/**
+ * 複数のタスクをまとめて削除する
+ * @param {Array<string>} taskIds - タスクIDの配列
+ * @returns {Promise<number>} 削除した件数
+ */
+export const deleteTasks = async (taskIds) => {
+  if (isMockMode()) {
+    return mockFirestoreUtils.deleteTasks && mockFirestoreUtils.deleteTasks(taskIds);
+  }
+
+  // 1回のバッチは500件まで
+  for (let i = 0; i < taskIds.length; i += 450) {
+    const batch = writeBatch(db);
+    taskIds.slice(i, i + 450).forEach((taskId) => batch.delete(doc(db, 'tasks', taskId)));
+    await batch.commit();
+  }
+  return taskIds.length;
 };
 
 /**

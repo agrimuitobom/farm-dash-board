@@ -1,6 +1,12 @@
 import React from 'react';
 
-const TasksTable = ({ tasks, onView, onEdit, onDelete, onStatusChange }) => {
+/**
+ * selectedIds / onToggleSelect / onToggleSelectAll を渡すと、行の先頭にチェックボックスを表示する
+ */
+const TasksTable = ({ tasks, onView, onEdit, onDelete, onStatusChange, selectedIds, onToggleSelect, onToggleSelectAll }) => {
+  const selectable = Boolean(selectedIds && onToggleSelect);
+  const allSelected = selectable && tasks.length > 0 && tasks.every(task => selectedIds.includes(task.id));
+
   // ステータスの表示を取得
   const getStatusDisplay = (status) => {
     switch (status) {
@@ -58,6 +64,17 @@ const TasksTable = ({ tasks, onView, onEdit, onDelete, onStatusChange }) => {
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
+            {selectable && (
+              <th scope="col" className="pl-6 py-3 w-8">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={(e) => onToggleSelectAll(e.target.checked)}
+                  aria-label="表示中のタスクをすべて選択"
+                  className="h-4 w-4"
+                />
+              </th>
+            )}
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               タスク名
             </th>
@@ -86,7 +103,18 @@ const TasksTable = ({ tasks, onView, onEdit, onDelete, onStatusChange }) => {
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {tasks.map((task) => (
-            <tr key={task.id} className="hover:bg-gray-50">
+            <tr key={task.id} className={`hover:bg-gray-50 ${selectable && selectedIds.includes(task.id) ? 'bg-blue-50' : ''}`}>
+              {selectable && (
+                <td className="pl-6 py-4 w-8">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(task.id)}
+                    onChange={() => onToggleSelect(task.id)}
+                    aria-label={`${task.title}を選択`}
+                    className="h-4 w-4"
+                  />
+                </td>
+              )}
               <td className="px-6 py-4 whitespace-nowrap">
                 <button 
                   onClick={() => onView(task)}
@@ -140,7 +168,7 @@ const TasksTable = ({ tasks, onView, onEdit, onDelete, onStatusChange }) => {
           
           {tasks.length === 0 && (
             <tr>
-              <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+              <td colSpan={selectable ? 9 : 8} className="px-6 py-4 text-center text-sm text-gray-500">
                 表示するタスクがありません
               </td>
             </tr>

@@ -5,18 +5,19 @@ import {
   Droplets, 
   Wind, 
   Sun, 
+  CloudSun,
   RefreshCw,
   AlertCircle,
   Calendar
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import WeatherWidget from './WeatherWidget';
+import { getCurrentWeather } from '../utils/weather/weatherApi';
 import HouseCard from './HouseCard';
 
 // Firestoreユーティリティ関数をインポート
 import { 
   getAllHouses, 
-  getLatestEnvironmentalData, 
   getEnvironmentalHistory,
   getPendingTasks,
   subscribeToUnresolvedAlerts,
@@ -29,19 +30,48 @@ import { normalizeAlert } from '../utils/alerts';
 const formatValue = (value, digits) =>
   typeof value === 'number' ? value.toFixed(digits) : '--';
 
-const toEnvironmentDisplay = (data) => ({
-  temperature: formatValue(data?.temperature, 1),
-  humidity: formatValue(data?.humidity, 0),
-  soilMoisture: formatValue(data?.soilMoisture, 0),
-  lastUpdated: data?.timestamp instanceof Date ? data.timestamp.toLocaleTimeString() : '--'
-});
+// 外気センサー（location が outdoor）のデータがこの時間内にあればそれを使い、
+// なければ Open-Meteo の西条市の気象データを外気として表示する（7インチ画面と同じ基準）
+const OUTDOOR_SENSOR_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Open-Meteo の再取得間隔（WeatherWidget と同じ）
+const WEATHER_REFRESH_MS = 10 * 60 * 1000;
+// 推移グラフの再取得間隔
+const CHART_REFRESH_MS = 5 * 60 * 1000;
+
+const isRecentOutdoorSensor = (data) =>
+  data?.timestamp instanceof Date && Date.now() - data.timestamp.getTime() < OUTDOOR_SENSOR_MAX_AGE_MS;
+
+const toOutdoorDisplay = (sensorData, weather) => {
+  if (isRecentOutdoorSensor(sensorData)) {
+    return {
+      source: '外気センサー',
+      temperature: formatValue(sensorData.temperature, 1),
+      humidity: formatValue(sensorData.humidity, 0),
+      soilMoisture: typeof sensorData.soilMoisture === 'number' ? formatValue(sensorData.soilMoisture, 0) : null,
+      weather: null,
+      lastUpdated: sensorData.timestamp.toLocaleTimeString('ja-JP')
+    };
+  }
+  if (weather) {
+    return {
+      source: '西条市（Open-Meteo）',
+      temperature: formatValue(weather.temp, 1),
+      humidity: formatValue(weather.humidity, 0),
+      soilMoisture: null,
+      weather: weather.weather.description,
+      lastUpdated: weather.timestamp.toLocaleTimeString('ja-JP')
+    };
+  }
+  return { source: '', temperature: '--', humidity: '--', soilMoisture: null, weather: null, lastUpdated: '--' };
+};
 
 // グラフに描く点の最大数（データ間隔に関わらずこの数程度に間引く）
 const MAX_CHART_POINTS = 12;
 
 const Dashboard = () => {
   // 環境データの状態
-  const [environmentData, setEnvironmentData] = useState(toEnvironmentDisplay(null));
+  const [outdoorSensor, setOutdoorSensor] = useState(null);
+  const [weather, setWeather] = useState(null);
   
   // フォールバック用のダミーデータ
   const dummyHouses = [
@@ -111,16 +141,13 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [isUsingDummyData, setIsUsingDummyData] = useState(false);
   const [housesEnvironmentalData, setHousesEnvironmentalData] = useState({});
+  const [chartLocation, setChartLocation] = useState('');
   
   // Firestoreからのデータ取得
   useEffect(() => {
     // 外気の環境データをリアルタイム監視（初回の値もこのコールバックで届く）
     // データがまだ無い状態で開いても、センサーが送信を始めれば自動で表示される
-    const unsubscribeEnvironmental = subscribeToEnvironmentalData('outdoor', (data) => {
-      if (data) {
-        setEnvironmentData(toEnvironmentDisplay(data));
-      }
-    });
+    const unsubscribeEnvironmental = subscribeToEnvironmentalData('outdoor', setOutdoorSensor);
     
     const fetchData = async () => {
       try {
@@ -137,54 +164,6 @@ const Dashboard = () => {
           setIsUsingDummyData(true);
         }
         
-        // 環境データの履歴を取得して、グラフ用に加工
-        try {
-          const envHistory = await getEnvironmentalHistory('outdoor', 24);
-          if (envHistory && envHistory.length > 0) {
-            // 新しい順で返ってくるので古い順に並べ替え、送信間隔に関わらず
-            // MAX_CHART_POINTS 点程度に間引く
-            const ordered = envHistory
-              .map(formatFirestoreData)
-              .filter(d => d.timestamp instanceof Date)
-              .reverse();
-            const step = Math.max(1, Math.ceil(ordered.length / MAX_CHART_POINTS));
-            const sampledData = ordered
-              .filter((_, i) => i % step === 0)
-              .map(d => ({
-                name: d.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                温度: d.temperature,
-                湿度: d.humidity,
-                土壌水分: d.soilMoisture
-              }));
-            setChartData(sampledData);
-          } else {
-            // ダミーのチャートデータを設定
-            setChartData([
-              { name: '06:00', 温度: 18, 湿度: 72, 土壌水分: 79 },
-              { name: '08:00', 温度: 20, 湿度: 68, 土壌水分: 78 },
-              { name: '10:00', 温度: 22, 湿度: 65, 土壌水分: 77 },
-              { name: '12:00', 温度: 24, 湿度: 60, 土壌水分: 75 },
-              { name: '14:00', 温度: 26, 湿度: 62, 土壌水分: 74 },
-              { name: '16:00', 温度: 25, 湿度: 65, 土壌水分: 76 },
-              { name: '18:00', 温度: 23, 湿度: 67, 土壌水分: 78 },
-              { name: '20:00', 温度: 21, 湿度: 70, 土壌水分: 79 },
-            ]);
-          }
-        } catch (err) {
-          console.error('環境データ履歴取得エラー:', err);
-          // ダミーデータで続行
-          setChartData([
-            { name: '06:00', 温度: 18, 湿度: 72, 土壌水分: 79 },
-            { name: '08:00', 温度: 20, 湿度: 68, 土壌水分: 78 },
-            { name: '10:00', 温度: 22, 湿度: 65, 土壌水分: 77 },
-            { name: '12:00', 温度: 24, 湿度: 60, 土壌水分: 75 },
-            { name: '14:00', 温度: 26, 湿度: 62, 土壌水分: 74 },
-            { name: '16:00', 温度: 25, 湿度: 65, 土壌水分: 76 },
-            { name: '18:00', 温度: 23, 湿度: 67, 土壌水分: 78 },
-            { name: '20:00', 温度: 21, 湿度: 70, 土壌水分: 79 },
-          ]);
-        }
-        
         // タスク情報を取得
         try {
           const tasksData = await getPendingTasks(5);
@@ -199,24 +178,9 @@ const Dashboard = () => {
               };
             });
             setTasks(formattedTasks);
-          } else {
-            // ダミーのタスクデータを設定
-            setTasks([
-              { id: 1, title: '温室ハウス2の水やり', dueDate: '2025-03-31', priority: '高' },
-              { id: 2, title: 'トマトの収穫', dueDate: '2025-04-01', priority: '中' },
-              { id: 3, title: '温室ハウス4の追肥', dueDate: '2025-04-02', priority: '中' },
-              { id: 4, title: '温室ハウス1の害虫防除', dueDate: '2025-04-03', priority: '高' },
-            ]);
           }
         } catch (err) {
           console.error('タスク取得エラー:', err);
-          // ダミーデータで続行
-          setTasks([
-            { id: 1, title: '温室ハウス2の水やり', dueDate: '2025-03-31', priority: '高' },
-            { id: 2, title: 'トマトの収穫', dueDate: '2025-04-01', priority: '中' },
-            { id: 3, title: '温室ハウス4の追肥', dueDate: '2025-04-02', priority: '中' },
-            { id: 4, title: '温室ハウス1の害虫防除', dueDate: '2025-04-03', priority: '高' },
-          ]);
         }
         
         setLoading(false);
@@ -256,17 +220,62 @@ const Dashboard = () => {
     return () => unsubscribes.forEach(unsubscribe => unsubscribe());
   }, [houseIdsKey]);
 
-  // 手動更新ボタン用関数
-  const refreshData = async () => {
-    try {
-      const outdoorData = await getLatestEnvironmentalData('outdoor');
-      if (outdoorData) {
-        setEnvironmentData(toEnvironmentDisplay(formatFirestoreData(outdoorData)));
-      }
-    } catch (error) {
-      console.error('最新データの取得中にエラーが発生しました:', error);
-    }
+  // 外気センサーが無いときに使う Open-Meteo の気象データ（10分ごとに更新）
+  const refreshWeather = async () => {
+    const data = await getCurrentWeather();
+    if (data) setWeather(data);
   };
+  useEffect(() => {
+    refreshWeather();
+    const timer = setInterval(refreshWeather, WEATHER_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, []);
+  const outdoor = toOutdoorDisplay(outdoorSensor, weather);
+
+  // 推移グラフで表示するハウス（最初はハウス一覧の先頭）
+  useEffect(() => {
+    if (!chartLocation && !isUsingDummyData && houses.length > 0) {
+      setChartLocation(houses[0].id);
+    }
+  }, [houses, chartLocation, isUsingDummyData]);
+
+  // 選んだハウスの過去24時間の推移（5分ごとに再取得）
+  useEffect(() => {
+    if (!chartLocation) return undefined;
+    let cancelled = false;
+
+    const loadHistory = async () => {
+      try {
+        const envHistory = await getEnvironmentalHistory(chartLocation, 24);
+        // 新しい順で返ってくるので古い順に並べ替え、送信間隔に関わらず
+        // MAX_CHART_POINTS 点程度に間引く
+        const ordered = envHistory
+          .map(formatFirestoreData)
+          .filter(d => d.timestamp instanceof Date)
+          .reverse();
+        const step = Math.max(1, Math.ceil(ordered.length / MAX_CHART_POINTS));
+        const sampledData = ordered
+          .filter((_, i) => i % step === 0)
+          .map(d => ({
+            name: d.timestamp.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+            温度: d.temperature,
+            湿度: d.humidity,
+            土壌水分: d.soilMoisture
+          }));
+        if (!cancelled) setChartData(sampledData);
+      } catch (err) {
+        console.error('環境データ履歴取得エラー:', err);
+        if (!cancelled) setChartData([]);
+      }
+    };
+
+    loadHistory();
+    const timer = setInterval(loadHistory, CHART_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [chartLocation]);
 
   return (
     <div className="fade-in">
@@ -306,7 +315,8 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">外気温</p>
-                <h3 className="text-xl font-bold">{environmentData.temperature} °C</h3>
+                <h3 className="text-xl font-bold">{outdoor.temperature} °C</h3>
+                {outdoor.source && <p className="text-xs text-gray-400">{outdoor.source}</p>}
               </div>
             </div>
             
@@ -315,20 +325,35 @@ const Dashboard = () => {
                 <Droplets className="h-6 w-6 text-blue-500" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">湿度</p>
-                <h3 className="text-xl font-bold">{environmentData.humidity} %</h3>
+                <p className="text-sm text-gray-500">外気の湿度</p>
+                <h3 className="text-xl font-bold">{outdoor.humidity} %</h3>
+                {outdoor.source && <p className="text-xs text-gray-400">{outdoor.source}</p>}
               </div>
             </div>
             
-            <div className="bg-white rounded-lg shadow p-4 flex items-center dashboard-card">
-              <div className="p-3 rounded-full bg-green-100 mr-4">
-                <Wind className="h-6 w-6 text-green-500" />
+            {/* 外気センサーに土壌水分があればそれを、無ければ天気を表示する */}
+            {outdoor.soilMoisture !== null ? (
+              <div className="bg-white rounded-lg shadow p-4 flex items-center dashboard-card">
+                <div className="p-3 rounded-full bg-green-100 mr-4">
+                  <Wind className="h-6 w-6 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">土壌水分</p>
+                  <h3 className="text-xl font-bold">{outdoor.soilMoisture} %</h3>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">土壌水分</p>
-                <h3 className="text-xl font-bold">{environmentData.soilMoisture} %</h3>
+            ) : (
+              <div className="bg-white rounded-lg shadow p-4 flex items-center dashboard-card">
+                <div className="p-3 rounded-full bg-green-100 mr-4">
+                  <CloudSun className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">天気</p>
+                  <h3 className="text-xl font-bold">{outdoor.weather || '--'}</h3>
+                  {outdoor.weather && <p className="text-xs text-gray-400">西条市（Open-Meteo）</p>}
+                </div>
               </div>
-            </div>
+            )}
             
             <div className="bg-white rounded-lg shadow p-4 flex items-center dashboard-card">
               <div className="p-3 rounded-full bg-yellow-100 mr-4">
@@ -337,10 +362,11 @@ const Dashboard = () => {
               <div>
                 <p className="text-sm text-gray-500">最終更新</p>
                 <h3 className="text-md font-bold flex items-center">
-                  {environmentData.lastUpdated}
+                  {outdoor.lastUpdated}
                   <button 
-                    onClick={refreshData}
+                    onClick={refreshWeather}
                     className="ml-2 p-1 rounded-full hover:bg-gray-100"
+                    title="外気データを更新"
                   >
                     <RefreshCw className="h-4 w-4 text-gray-400" />
                   </button>
@@ -357,7 +383,21 @@ const Dashboard = () => {
             </div>
             
             <div className="bg-white rounded-lg shadow p-4 lg:col-span-2">
-              <h3 className="text-lg font-semibold mb-4">環境データ推移</h3>
+              <div className="flex justify-between items-center mb-4 gap-2">
+                <h3 className="text-lg font-semibold">環境データ推移（過去24時間）</h3>
+                {!isUsingDummyData && houses.length > 0 && (
+                  <select
+                    value={chartLocation}
+                    onChange={(e) => setChartLocation(e.target.value)}
+                    className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                    aria-label="表示するハウス"
+                  >
+                    {houses.map(house => (
+                      <option key={house.id} value={house.id}>{house.name || house.id}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <div className="h-64">
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -378,8 +418,8 @@ const Dashboard = () => {
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex justify-center items-center h-full">
-                    <p>データがありません</p>
+                  <div className="flex justify-center items-center h-full text-gray-500">
+                    <p>過去24時間のデータがありません</p>
                   </div>
                 )}
               </div>

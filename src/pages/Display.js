@@ -12,7 +12,8 @@ import {
   HelpCircle,
   X,
   Thermometer,
-  Droplets
+  Droplets,
+  CloudSun
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
@@ -22,12 +23,17 @@ import {
 } from '../firestoreUtils';
 import { getHouseThresholds } from '../utils/environmentalRanges';
 import { isKioskMode } from '../utils/kioskMode';
+import { getCurrentWeather, getRecentHourlyWeather } from '../utils/weather/weatherApi';
 
 // この時間データが来なければ「通信なし」とする（センサーは1分ごとに送信）
 const STALE_MS = 10 * 60 * 1000;
-// 外気のデータがこの時間届いていなければ、外気センサーは置かれていないとみなして外気欄を出さない
-// （outdoor に送るセンサーを置けば、自動で表示される）
-const OUTDOOR_HIDE_MS = 24 * 60 * 60 * 1000;
+// 外気センサー（location が outdoor）のデータがこの時間届いていなければ、センサーは置かれていないとみなし、
+// 外気欄には Open-Meteo の西条市の気象データを表示する（outdoor に送るセンサーを置けば自動で切り替わる）
+const OUTDOOR_SENSOR_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Open-Meteo の再取得間隔
+const WEATHER_REFRESH_MS = 10 * 60 * 1000;
+// Open-Meteo の値を表示しているときの外気欄の線の色（状態の色とは区別する）
+const WEATHER_ACCENT = '#60a5fa';
 // 推移グラフを開いたまま放置したら自動で閉じる
 const DETAIL_TIMEOUT_MS = 60 * 1000;
 // 推移グラフの最大点数（Raspberry Pi で描画を軽くするため間引く）
@@ -147,17 +153,22 @@ const HouseTile = ({ house, data, now, size, onSelect }) => {
   );
 };
 
-const OutdoorPanel = ({ data, now, onSelect }) => {
+// source が 'weather' のときは Open-Meteo の西条市の値（センサーではないので状態の判定はしない）
+const OutdoorPanel = ({ data, now, onSelect, source, description }) => {
+  const fromWeather = source === 'weather';
   // 外気はハウスではないので既定の範囲で判定する
   const status = getStatus(data, now, getHouseThresholds(null));
   return (
     <button
       type="button"
-      onClick={() => onSelect({ id: 'outdoor', name: '外気' })}
+      onClick={() => onSelect(fromWeather
+        ? { id: 'outdoor', name: '外気（西条市）', source: 'weather' }
+        : { id: 'outdoor', name: '外気' })}
       className="w-[300px] flex-shrink-0 bg-white rounded-xl shadow-sm p-5 flex flex-col text-left border-l-8 active:bg-gray-50"
-      style={{ borderLeftColor: STATUS_STYLES[status.key].color }}
+      style={{ borderLeftColor: fromWeather ? WEATHER_ACCENT : STATUS_STYLES[status.key].color }}
     >
       <p className="text-2xl font-bold text-gray-900">外気</p>
+      {fromWeather && <p className="text-sm text-gray-500">西条市（気象データ）</p>}
       <div className="flex-1 flex flex-col justify-center">
         <p className="text-sm text-gray-500 flex items-center">
           <Thermometer className="h-4 w-4 mr-1" aria-hidden="true" />気温
@@ -174,10 +185,21 @@ const OutdoorPanel = ({ data, now, onSelect }) => {
           <span className="text-xl font-normal text-gray-500 ml-1">%</span>
         </p>
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <StatusBadge status={status} large />
-        <span className="text-base text-gray-500 whitespace-nowrap">{formatAgo(data?.timestamp, now)}</span>
-      </div>
+      {fromWeather ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center text-lg font-medium text-gray-800 min-w-0 truncate">
+            <CloudSun className="h-6 w-6 mr-1.5 flex-shrink-0 text-gray-500" aria-hidden="true" />
+            {description}
+          </span>
+          {/* Open-Meteo のデータは CC BY 4.0。出典の表示が必要 */}
+          <span className="text-sm text-gray-400 whitespace-nowrap">Open-Meteo</span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <StatusBadge status={status} large />
+          <span className="text-base text-gray-500 whitespace-nowrap">{formatAgo(data?.timestamp, now)}</span>
+        </div>
+      )}
     </button>
   );
 };
@@ -233,7 +255,10 @@ const DetailOverlay = ({ target, onClose }) => {
 
   useEffect(() => {
     let cancelled = false;
-    getEnvironmentalHistory(target.id, 24)
+    const loadHistory = target.source === 'weather'
+      ? getRecentHourlyWeather(24)
+      : getEnvironmentalHistory(target.id, 24);
+    loadHistory
       .then((records) => {
         if (cancelled) return;
         const ordered = records
@@ -255,12 +280,15 @@ const DetailOverlay = ({ target, onClose }) => {
         if (!cancelled) setHistory([]);
       });
     return () => { cancelled = true; };
-  }, [target.id]);
+  }, [target.id, target.source]);
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-100 flex flex-col" onPointerDown={resetTimer}>
       <div className="h-16 flex-shrink-0 bg-green-800 text-white flex items-center justify-between px-5">
-        <p className="text-2xl font-bold">{target.name}　過去24時間の推移</p>
+        <p className="text-2xl font-bold">
+          {target.name}　過去24時間の推移
+          {target.source === 'weather' && <span className="ml-3 text-base font-normal text-green-100">気象データ: Open-Meteo</span>}
+        </p>
         <button
           type="button"
           onClick={onClose}
@@ -292,6 +320,18 @@ const Display = () => {
   const [now, setNow] = useState(Date.now());
   const [online, setOnline] = useState(navigator.onLine);
   const [selected, setSelected] = useState(null);
+  const [weather, setWeather] = useState(null);
+
+  // 外気センサーが無いときに使う Open-Meteo の気象データ
+  useEffect(() => {
+    const refresh = async () => {
+      const data = await getCurrentWeather();
+      if (data) setWeather(data);
+    };
+    refresh();
+    const timer = setInterval(refresh, WEATHER_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   // 時計と「○分前」の更新
   useEffect(() => {
@@ -323,8 +363,9 @@ const Display = () => {
   }, [locationsKey]);
 
   const houseList = houses || [];
-  const outdoor = envData.outdoor;
-  const showOutdoor = outdoor?.timestamp instanceof Date && now - outdoor.timestamp.getTime() < OUTDOOR_HIDE_MS;
+  const outdoorSensor = envData.outdoor;
+  const hasOutdoorSensor = outdoorSensor?.timestamp instanceof Date
+    && now - outdoorSensor.timestamp.getTime() < OUTDOOR_SENSOR_MAX_AGE_MS;
   const layout = getGridLayout(houseList.length);
   const nowDate = new Date(now);
 
@@ -349,7 +390,17 @@ const Display = () => {
       </header>
 
       <main className="flex-1 min-h-0 flex gap-3 p-3">
-        {showOutdoor && <OutdoorPanel data={outdoor} now={now} onSelect={setSelected} />}
+        {hasOutdoorSensor ? (
+          <OutdoorPanel data={outdoorSensor} now={now} onSelect={setSelected} source="sensor" />
+        ) : weather && (
+          <OutdoorPanel
+            data={{ temperature: weather.temp, humidity: weather.humidity, timestamp: weather.timestamp }}
+            now={now}
+            onSelect={setSelected}
+            source="weather"
+            description={weather.weather.description}
+          />
+        )}
 
         {houses === null ? (
           <div className="flex-1 flex items-center justify-center text-xl text-gray-500">読み込み中…</div>

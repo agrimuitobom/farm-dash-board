@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Loader2, AlertCircle, Calendar, List } from 'lucide-react';
+import { PlusCircle, Loader2, AlertCircle, Calendar, List, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 // コンポーネントのインポート
 import TasksCalendar from '../components/tasks/TasksCalendar';
@@ -15,8 +16,8 @@ import {
   getPendingTasks,
   addTask,
   updateTask,
-  // deleteTaskはまだ実装されていないようなので一時的にコメントアウト
-  // deleteTask,
+  deleteTask,
+  deleteTasks,
   getAllHouses,
   getAllCrops,
   formatFirestoreData 
@@ -46,6 +47,8 @@ const Tasks = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  // 一括削除用に選択したタスクのID
+  const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   
   // タスクフォームの初期値
   const initialFormData = {
@@ -78,54 +81,14 @@ const Tasks = () => {
         ]);
         
         // データをフォーマット
-        if (tasksData && tasksData.length > 0) {
-          const formattedTasks = tasksData.map(task => formatFirestoreData(task));
-          setTasks(formattedTasks);
-        } else {
-          // ダミーデータ（後ほど削除）
-          const dummyTasks = [
-            { 
-              id: 1, 
-              title: '温度センサーの校正', 
-              description: 'ハウス1の温度センサーを校正する',
-              status: 'pending', 
-              priority: 'high',
-              dueDate: new Date(2025, 3, 3), 
-              houseId: 'house1',
-              houseName: '温室ハウス1',
-              cropId: 'crop1',
-              cropName: '長期ミニトマト R6',
-              assignedTo: '農場長'
-            },
-            { 
-              id: 2, 
-              title: '水耕栽培システムのメンテナンス', 
-              description: 'ポンプの清掃と水質検査を実施',
-              status: 'in-progress', 
-              priority: 'medium',
-              dueDate: new Date(2025, 3, 5), 
-              houseId: 'house2',
-              houseName: '温室ハウス2',
-              cropId: 'crop3',
-              cropName: 'キュウリ 夏すずみ',
-              assignedTo: '設備担当'
-            },
-            { 
-              id: 3, 
-              title: '害虫点検', 
-              description: '週次の害虫点検を実施',
-              status: 'completed', 
-              priority: 'low',
-              dueDate: new Date(2025, 3, 1), 
-              houseId: 'house3',
-              houseName: '温室ハウス3',
-              cropId: 'crop4',
-              cropName: 'パプリカ オレンジ',
-              assignedTo: '栽培担当'
-            }
-          ];
-          setTasks(dummyTasks);
-        }
+        // 以前のサンプルデータは status が無く completed だけを持つので、status をそろえる
+        setTasks((tasksData || []).map(task => {
+          const formatted = formatFirestoreData(task);
+          return {
+            ...formatted,
+            status: formatted.status || (formatted.completed ? 'completed' : 'pending')
+          };
+        }));
         
         // ハウスと作物のデータをセット
         if (housesData && housesData.length > 0) {
@@ -387,25 +350,61 @@ const Tasks = () => {
     
     try {
       setLoading(true);
-      // deleteTask関数がまだ実装されていないため、一時的にコメントアウト
-      // await deleteTask(taskId);
-      
-      // 代わりにupdateTaskを使用してタスクに削除フラグを立てる
-      await updateTask(taskId, { deleted: true });
+      await deleteTask(taskId);
       
       // タスクリストを更新
       setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+      setSelectedTaskIds(prev => prev.filter(id => id !== taskId));
       
       // モーダルを閉じる（表示中なら）
       if (isViewModalOpen && selectedTask && selectedTask.id === taskId) {
         setIsViewModalOpen(false);
       }
       
-      // 成功メッセージ
-      alert('タスクを削除しました');
+      toast.success('タスクを削除しました');
     } catch (err) {
       console.error('タスクの削除中にエラーが発生しました:', err);
       setError('タスクの削除中にエラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // チェックボックスの操作
+  const handleToggleSelect = (taskId) => {
+    setSelectedTaskIds(prev =>
+      prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
+    );
+  };
+  
+  const handleToggleSelectAll = (checked) => {
+    const visibleIds = filteredTasks.map(task => task.id);
+    setSelectedTaskIds(prev =>
+      checked
+        ? [...new Set([...prev, ...visibleIds])]
+        : prev.filter(id => !visibleIds.includes(id))
+    );
+  };
+  
+  // 選択したタスクをまとめて削除する（重複した見本データの片付けなど）
+  // フィルターで隠れたタスクは消さないよう、表示中かつ選択中のものだけを対象にする
+  const selectedVisibleIds = filteredTasks
+    .map(task => task.id)
+    .filter(id => selectedTaskIds.includes(id));
+  
+  const handleDeleteSelected = async () => {
+    if (selectedVisibleIds.length === 0) return;
+    if (!window.confirm(`選択した ${selectedVisibleIds.length} 件のタスクを削除しますか？この操作は元に戻せません。`)) return;
+    
+    try {
+      setLoading(true);
+      const count = await deleteTasks(selectedVisibleIds);
+      setTasks(prevTasks => prevTasks.filter(task => !selectedVisibleIds.includes(task.id)));
+      setSelectedTaskIds([]);
+      toast.success(`${count} 件のタスクを削除しました`);
+    } catch (err) {
+      console.error('タスクの一括削除中にエラーが発生しました:', err);
+      setError('タスクの一括削除中にエラーが発生しました');
     } finally {
       setLoading(false);
     }
@@ -524,13 +523,30 @@ const Tasks = () => {
         <>
           {/* リスト表示 */}
           {viewMode === 'list' && (
-            <TasksTable 
-              tasks={filteredTasks}
-              onView={handleOpenViewModal}
-              onEdit={handleOpenEditModal}
-              onDelete={handleDeleteTask}
-              onStatusChange={handleStatusChange}
-            />
+            <>
+              {selectedVisibleIds.length > 0 && (
+                <div className="mb-3 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                  <span className="text-sm text-blue-900">{selectedVisibleIds.length} 件を選択中</span>
+                  <button
+                    onClick={handleDeleteSelected}
+                    className="flex items-center px-3 py-1.5 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    選択したタスクを削除
+                  </button>
+                </div>
+              )}
+              <TasksTable 
+                tasks={filteredTasks}
+                onView={handleOpenViewModal}
+                onEdit={handleOpenEditModal}
+                onDelete={handleDeleteTask}
+                onStatusChange={handleStatusChange}
+                selectedIds={selectedTaskIds}
+                onToggleSelect={handleToggleSelect}
+                onToggleSelectAll={handleToggleSelectAll}
+              />
+            </>
           )}
           
           {/* カレンダー表示 */}
