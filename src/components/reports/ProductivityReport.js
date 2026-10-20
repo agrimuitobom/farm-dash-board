@@ -44,6 +44,11 @@ const ProductivityReport = ({ data, reportTitle, quantityUnit = 'kg', areaUnit =
         </div>
         <span className="text-sm text-gray-500">単位: {quantityUnit}/{areaUnit}</span>
       </div>
+      {data.some(item => !(item.totalArea > 0)) && (
+        <p className="px-4 py-2 text-sm text-yellow-800 bg-yellow-50 border-b">
+          面積が登録されていないハウスは生産性を計算できません。ハウス管理でハウスの面積を入力してください。
+        </p>
+      )}
 
       {/* サマリー部分 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 border-b">
@@ -139,9 +144,13 @@ const ProductivityReport = ({ data, reportTitle, quantityUnit = 'kg', areaUnit =
                       <span className="font-medium">{item.productivity.toFixed(2)}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${isAboveAverage ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {isAboveAverage ? '+' : ''}{comparedToAverage.toFixed(1)}%
-                      </span>
+                      {averageProductivity > 0 && item.totalArea > 0 ? (
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${isAboveAverage ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {isAboveAverage ? '+' : ''}{comparedToAverage.toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                   </tr>
                 );

@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { PrinterIcon, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 // 自作コンポーネント
 import ReportFilters from '../components/reports/ReportFilters';
 import ProductionReport from '../components/reports/ProductionReport';
 import ProductivityReport from '../components/reports/ProductivityReport';
 import CropTrendsReport from '../components/reports/CropTrendsReport';
-import ReportTable from '../components/reports/ReportTable';
+import HarvestRecords from '../components/reports/HarvestRecords';
 
 // ユーティリティ関数
 import { 
@@ -18,6 +18,25 @@ import {
 
 // Firestoreユーティリティ
 import { getAllHouses, getAllCrops } from '../firestoreUtils';
+
+// 期間タイプに応じた月数を取得（トレンドレポート用）
+function getMonthsFromTimePeriod(timePeriod, startDate, endDate) {
+  switch (timePeriod) {
+    case 'month':
+      return 1;
+    case 'quarter':
+      return 3;
+    case 'year':
+      return 12;
+    case 'custom':
+      // カスタム期間の場合は日付の差から月数を計算
+      const diffTime = Math.abs(endDate - startDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return Math.max(1, Math.ceil(diffDays / 30));
+    default:
+      return 12;
+  }
+}
 
 const Reports = () => {
   // 状態管理
@@ -31,6 +50,8 @@ const Reports = () => {
   const [houses, setHouses] = useState([]);
   const [crops, setCrops] = useState([]);
   const [reportData, setReportData] = useState([]);
+  // reportData がどのレポートの形か（切り替え直後に別の形のデータを描画しないため）
+  const [reportDataType, setReportDataType] = useState(null);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -39,61 +60,46 @@ const Reports = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        setLoading(true);
-        
         // ハウスと作物のデータを取得
         const [housesData, cropsData] = await Promise.all([
           getAllHouses(),
           getAllCrops()
         ]);
         
-        if (housesData && housesData.length > 0) {
-          setHouses(housesData);
-        }
-        
-        if (cropsData && cropsData.length > 0) {
-          setCrops(cropsData);
-        }
-        
-        // 初期レポート生成
-        await generateReport();
-        
+        setHouses(housesData || []);
+        setCrops(cropsData || []);
       } catch (err) {
         console.error('データの取得中にエラーが発生しました:', err);
         setError('データの取得中にエラーが発生しました。');
-      } finally {
-        setLoading(false);
       }
     };
     
     fetchInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
-  // レポート生成関数
-  const generateReport = async () => {
+  // レポート生成関数（収穫記録を集計する）
+  const generateReport = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
+      const crop = crops.find(item => item.id === cropId) || null;
       let data = [];
       
       switch (reportType) {
-        case 'production':
-          data = await getProductionReport(startDate, endDate, houseId);
-          break;
         case 'productivity':
-          data = await getProductivityReport(startDate, endDate, cropId);
+          data = await getProductivityReport(startDate, endDate, crop, houses);
           break;
         case 'trends':
-          const months = getMonthsFromTimePeriod();
-          data = await getCropTrendsReport(months, cropId);
+          data = await getCropTrendsReport(getMonthsFromTimePeriod(timePeriod, startDate, endDate), crop);
           break;
+        case 'production':
         default:
           data = await getProductionReport(startDate, endDate, houseId);
       }
       
       setReportData(data);
+      setReportDataType(reportType);
       
     } catch (err) {
       console.error('レポート生成中にエラーが発生しました:', err);
@@ -101,7 +107,12 @@ const Reports = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportType, timePeriod, startDate, endDate, houseId, cropId, houses, crops]);
+  
+  // 条件が変わったら集計し直す
+  useEffect(() => {
+    generateReport();
+  }, [generateReport]);
   
   // CSV出力関数
   const handleExportCSV = () => {
@@ -112,10 +123,10 @@ const Reports = () => {
       }
       
       // CSVに変換
-      const csvData = convertToCSV(reportData, reportType);
+      const csvData = convertToCSV(reportData);
       
-      // CSVファイルとしてダウンロード
-      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      // CSVファイルとしてダウンロード（Excelで文字化けしないようBOMを付ける）
+      const blob = new Blob(['\uFEFF' + csvData], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       
@@ -137,11 +148,6 @@ const Reports = () => {
     }
   };
   
-  // 印刷関数
-  const handlePrint = () => {
-    window.print();
-  };
-  
   // レポートタイプ変更ハンドラー
   const handleReportTypeChange = (type) => {
     setReportType(type);
@@ -159,6 +165,7 @@ const Reports = () => {
   
   // 日付変更ハンドラー
   const handleDateChange = (type, value) => {
+    if (!value) return; // 入力欄を空にしたときは期間を変えない
     switch (type) {
       case 'start':
         setStartDate(new Date(value));
@@ -250,25 +257,6 @@ const Reports = () => {
     }
   }
   
-  // 期間タイプに応じた月数を取得（トレンドレポート用）
-  function getMonthsFromTimePeriod() {
-    switch (timePeriod) {
-      case 'month':
-        return 1;
-      case 'quarter':
-        return 3;
-      case 'year':
-        return 12;
-      case 'custom':
-        // カスタム期間の場合は日付の差から月数を計算
-        const diffTime = Math.abs(endDate - startDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return Math.max(1, Math.ceil(diffDays / 30));
-      default:
-        return 12;
-    }
-  }
-  
   // レポートタイプに応じたタイトルを取得
   function getReportTitle() {
     const dateRangeText = `${startDate.getFullYear()}年${startDate.getMonth() + 1}月 - ${endDate.getFullYear()}年${endDate.getMonth() + 1}月`;
@@ -301,15 +289,6 @@ const Reports = () => {
   
   // レポートコンポーネントのレンダリング
   const renderReportComponent = () => {
-    if (loading) {
-      return (
-        <div className="flex justify-center items-center p-12">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin mr-2" />
-          <span className="text-gray-600">データを読み込み中...</span>
-        </div>
-      );
-    }
-    
     if (error) {
       return (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
@@ -317,6 +296,15 @@ const Reports = () => {
             <AlertCircle className="w-6 h-6 text-red-500 mr-2" />
             <p className="text-red-700">{error}</p>
           </div>
+        </div>
+      );
+    }
+    
+    if (loading || reportDataType !== reportType) {
+      return (
+        <div className="flex justify-center items-center p-12">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin mr-2" />
+          <span className="text-gray-600">データを読み込み中...</span>
         </div>
       );
     }
@@ -357,7 +345,7 @@ const Reports = () => {
     <div className="container mx-auto px-4 py-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">統計・レポート</h1>
-        <p className="text-gray-600">生産量、収益、費用などの統計データと分析</p>
+        <p className="text-gray-600">収穫記録をもとにした生産量・生産性・収穫量推移の集計</p>
       </div>
       
       {/* フィルターエリア */}
@@ -377,6 +365,15 @@ const Reports = () => {
         onCropChange={handleCropChange}
         onGenerateReport={generateReport}
         onExportCSV={handleExportCSV}
+      />
+      
+      {/* 収穫記録の入力 */}
+      <HarvestRecords
+        houses={houses}
+        crops={crops}
+        startDate={startDate}
+        endDate={endDate}
+        onChanged={generateReport}
       />
       
       {/* レポート表示エリア */}

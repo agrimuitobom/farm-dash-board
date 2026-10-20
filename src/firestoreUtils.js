@@ -24,8 +24,6 @@ import {
   serverTimestamp,
   onSnapshot,
   Timestamp,
-  arrayUnion,
-  arrayRemove,
   writeBatch
 } from 'firebase/firestore';
 
@@ -1120,166 +1118,7 @@ export const deleteCrop = async (cropId) => {
   }
 };
 
-// ============== シフト関連の関数 ==============
-
-/**
- * シフト一覧を取得する
- * @param {Date} startDate - 開始日
- * @param {Date} endDate - 終了日
- * @returns {Promise<Array>} シフト情報の配列
- */
-export const getShiftList = async (startDate, endDate) => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.getShiftList(startDate, endDate);
-  }
-  
-  try {
-    const shiftQuery = query(
-      collection(db, 'shifts'),
-      where('start', '>=', Timestamp.fromDate(new Date(startDate))),
-      where('start', '<=', Timestamp.fromDate(new Date(endDate))),
-      orderBy('start')
-    );
-    
-    const querySnapshot = await getDocs(shiftQuery);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
-  } catch (error) {
-    console.error('シフト一覧の取得中にエラーが発生しました:', error);
-    throw error;
-  }
-};
-
-/**
- * シフト情報を保存する（新規/更新）
- * @param {Object} shiftData - シフトデータ
- * @param {string} [shiftId] - シフトID（更新の場合）
- * @returns {Promise<string>} シフトID
- */
-export const saveShift = async (shiftData, shiftId = null) => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.saveShift(shiftData, shiftId);
-  }
-  
-  try {
-    // 日付フィールドをタイムスタンプに変換
-    const data = {
-      ...shiftData,
-      start: shiftData.start ? Timestamp.fromDate(new Date(shiftData.start)) : null,
-      end: shiftData.end ? Timestamp.fromDate(new Date(shiftData.end)) : null
-    };
-    
-    if (shiftId) {
-      // 既存シフトの更新
-      const docRef = doc(db, 'shifts', shiftId);
-      await updateDoc(docRef, {
-        ...data,
-        updatedAt: getServerTimestamp()
-      });
-      return shiftId;
-    } else {
-      // 新規シフトの追加
-      const docRef = await addDoc(collection(db, 'shifts'), {
-        ...data,
-        createdAt: getServerTimestamp(),
-        updatedAt: getServerTimestamp()
-      });
-      return docRef.id;
-    }
-  } catch (error) {
-    console.error('シフトの保存中にエラーが発生しました:', error);
-    throw error;
-  }
-};
-
-/**
- * シフトを削除する
- * @param {string} shiftId - シフトID
- * @returns {Promise<boolean>} 成功した場合はtrue
- */
-export const deleteShift = async (shiftId) => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.deleteShift(shiftId);
-  }
-  
-  try {
-    const docRef = doc(db, 'shifts', shiftId);
-    await deleteDoc(docRef);
-    return true;
-  } catch (error) {
-    console.error(`シフト ${shiftId} の削除中にエラーが発生しました:`, error);
-    throw error;
-  }
-};
-
-/**
- * スタッフのシフト一覧を取得する
- * @param {string} staffId - スタッフID
- * @param {Date} startDate - 開始日
- * @param {Date} endDate - 終了日
- * @returns {Promise<Array>} シフト情報の配列
- */
-export const getStaffShifts = async (staffId, startDate, endDate) => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.getStaffShifts(staffId, startDate, endDate);
-  }
-  
-  try {
-    const shiftQuery = query(
-      collection(db, 'shifts'),
-      where('staffId', '==', staffId),
-      where('start', '>=', Timestamp.fromDate(new Date(startDate))),
-      where('start', '<=', Timestamp.fromDate(new Date(endDate))),
-      orderBy('start')
-    );
-    
-    const querySnapshot = await getDocs(shiftQuery);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
-  } catch (error) {
-    console.error(`スタッフ ${staffId} のシフト取得中にエラーが発生しました:`, error);
-    throw error;
-  }
-};
-
-/**
- * シフト詳細を取得する
- * @param {string} shiftId - シフトID
- * @returns {Promise<Object>} シフト情報
- */
-export const getShiftDetails = async (shiftId) => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.getShiftDetails(shiftId);
-  }
-  
-  try {
-    const docRef = doc(db, 'shifts', shiftId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return {
-        id: docSnap.id,
-        ...formatFirestoreData(docSnap.data())
-      };
-    } else {
-      throw new Error(`シフトID ${shiftId} が見つかりません`);
-    }
-  } catch (error) {
-    console.error(`シフト ${shiftId} の取得中にエラーが発生しました:`, error);
-    throw error;
-  }
-};
+// ============== タスク関連の関数（続き） ==============
 
 /**
  * タスクを更新する
@@ -1344,7 +1183,7 @@ export const deleteTasks = async (taskIds) => {
  * @param {number} limit - 取得するタスクの最大数
  * @returns {Promise<Array>} タスク情報の配列
  */
-export const getTasks = async (limitCount = 100) => {
+export const getTasks = async (limitCount = 1000) => {
   // モックモードの場合はモック実装を使用
   if (isMockMode()) {
     return mockFirestoreUtils.getTasks && mockFirestoreUtils.getTasks(limitCount);
@@ -1359,10 +1198,13 @@ export const getTasks = async (limitCount = 100) => {
     
     const querySnapshot = await getDocs(tasksQuery);
     
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
+    return querySnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...formatFirestoreData(doc.data())
+      }))
+      // 以前の削除処理は削除フラグを立てるだけだったので、そのタスクも除外する
+      .filter(task => !task.deleted);
   } catch (error) {
     console.error('タスク一覧の取得中にエラーが発生しました:', error);
     throw error;
@@ -1377,317 +1219,44 @@ const getServerTimestamp = () => {
   return serverTimestamp();
 };
 
-// モックモードでArrayユーティリティ関数を置き換え
-const getArrayUnion = (...items) => {
-  if (isMockMode()) {
-    return mockFirestoreUtils.arrayUnion(...items);
-  }
-  return arrayUnion(...items);
-};
 
-const getArrayRemove = (...items) => {
-  if (isMockMode()) {
-    return mockFirestoreUtils.arrayRemove(...items);
-  }
-  return arrayRemove(...items);
-};
-
-// ============== スタッフ関連の関数 ==============
+// ============== 収穫記録の関数 ==============
 
 /**
- * スタッフ一覧を取得する
- * @returns {Promise<Array>} スタッフ情報の配列
+ * 収穫を記録する（統計・レポートの集計に使う）
+ * @param {Object} harvestData - harvestDate(Date), houseId, houseName, cropId, cropName, quantity(kg), notes
+ * @returns {Promise<string>} 追加した記録のID
  */
-export const getStaffList = async () => {
-  // モックモードの場合はモック実装を使用
+export const addHarvest = async (harvestData) => {
   if (isMockMode()) {
-    return mockFirestoreUtils.getStaffList();
+    return mockFirestoreUtils.addHarvest && mockFirestoreUtils.addHarvest(harvestData);
   }
-  
-  try {
-    const staffQuery = query(
-      collection(db, 'staff'),
-      where('isActive', '==', true),
-      orderBy('name')
-    );
-    
-    const querySnapshot = await getDocs(staffQuery);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
-  } catch (error) {
-    console.error('スタッフ一覧の取得中にエラーが発生しました:', error);
-    throw error;
-  }
+
+  const docRef = await addDoc(collection(db, 'harvests'), {
+    harvestDate: Timestamp.fromDate(new Date(harvestData.harvestDate)),
+    houseId: harvestData.houseId || '',
+    houseName: harvestData.houseName || '',
+    cropId: harvestData.cropId || '',
+    cropName: harvestData.cropName || '',
+    quantity: Number(harvestData.quantity),
+    notes: harvestData.notes || '',
+    createdAt: getServerTimestamp()
+  });
+  return docRef.id;
 };
 
 /**
- * スタッフ詳細を取得する
- * @param {string} staffId - スタッフのID
- * @returns {Promise<Object>} スタッフ情報
- */
-export const getStaffDetails = async (staffId) => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.getStaffDetails(staffId);
-  }
-  
-  try {
-    const docRef = doc(db, 'staff', staffId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return {
-        id: docSnap.id,
-        ...formatFirestoreData(docSnap.data())
-      };
-    } else {
-      throw new Error(`スタッフID ${staffId} が見つかりません`);
-    }
-  } catch (error) {
-    console.error(`スタッフ ${staffId} の取得中にエラーが発生しました:`, error);
-    throw error;
-  }
-};
-
-/**
- * スタッフ情報を保存する（新規/更新）
- * @param {Object} staffData - スタッフデータ
- * @param {string} [staffId] - スタッフID（更新の場合）
- * @returns {Promise<string>} スタッフID
- */
-export const saveStaffMember = async (staffData, staffId = null) => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.saveStaffMember(staffData, staffId);
-  }
-  
-  try {
-    // 日付フィールドをタイムスタンプに変換
-    const data = {
-      ...staffData,
-      certifications: staffData.certifications?.map(cert => ({
-        ...cert,
-        issueDate: cert.issueDate ? Timestamp.fromDate(new Date(cert.issueDate)) : null,
-        expiryDate: cert.expiryDate ? Timestamp.fromDate(new Date(cert.expiryDate)) : null
-      })) || []
-    };
-    
-    if (staffId) {
-      // 既存スタッフの更新
-      const docRef = doc(db, 'staff', staffId);
-      await updateDoc(docRef, {
-        ...data,
-        updatedAt: getServerTimestamp()
-      });
-      return staffId;
-    } else {
-      // 新規スタッフの追加
-      const docRef = await addDoc(collection(db, 'staff'), {
-        ...data,
-        isActive: true,
-        assignedTasks: [],
-        createdAt: getServerTimestamp(),
-        updatedAt: getServerTimestamp()
-      });
-      return docRef.id;
-    }
-  } catch (error) {
-    console.error('スタッフの保存中にエラーが発生しました:', error);
-    throw error;
-  }
-};
-
-/**
- * スタッフを削除する（論理削除）
- * @param {string} staffId - スタッフのID
+ * 収穫記録を削除する
+ * @param {string} harvestId - 記録のID
  * @returns {Promise<boolean>} 成功した場合はtrue
  */
-export const deleteStaffMember = async (staffId) => {
-  // モックモードの場合はモック実装を使用
+export const deleteHarvest = async (harvestId) => {
   if (isMockMode()) {
-    return mockFirestoreUtils.deleteStaffMember(staffId);
+    return mockFirestoreUtils.deleteHarvest && mockFirestoreUtils.deleteHarvest(harvestId);
   }
-  
-  try {
-    const docRef = doc(db, 'staff', staffId);
-    await updateDoc(docRef, {
-      isActive: false,
-      updatedAt: getServerTimestamp()
-    });
-    return true;
-  } catch (error) {
-    console.error(`スタッフ ${staffId} の削除中にエラーが発生しました:`, error);
-    throw error;
-  }
-};
 
-/**
- * スタッフにタスクを割り当てる
- * @param {string} staffId - スタッフのID
- * @param {string} taskId - タスクのID
- * @returns {Promise<boolean>} 成功した場合はtrue
- */
-export const assignTaskToStaff = async (staffId, taskId) => {
-  try {
-    // タスクのスタッフ割り当てフィールドを更新
-    const taskRef = doc(db, 'tasks', taskId);
-    await updateDoc(taskRef, {
-      assignedTo: staffId,
-      updatedAt: getServerTimestamp()
-    });
-    
-    // スタッフの割り当てタスク配列に追加
-    const staffRef = doc(db, 'staff', staffId);
-    await updateDoc(staffRef, {
-      assignedTasks: getArrayUnion(taskId),
-      updatedAt: getServerTimestamp()
-    });
-    
-    return true;
-  } catch (error) {
-    console.error('タスクの割り当て中にエラーが発生しました:', error);
-    throw error;
-  }
-};
-
-/**
- * スタッフからタスクの割り当てを解除する
- * @param {string} staffId - スタッフのID
- * @param {string} taskId - タスクのID
- * @returns {Promise<boolean>} 成功した場合はtrue
- */
-export const unassignTaskFromStaff = async (staffId, taskId) => {
-  try {
-    // タスクのスタッフ割り当てフィールドをクリア
-    const taskRef = doc(db, 'tasks', taskId);
-    await updateDoc(taskRef, {
-      assignedTo: null,
-      updatedAt: getServerTimestamp()
-    });
-    
-    // スタッフの割り当てタスク配列から削除
-    const staffRef = doc(db, 'staff', staffId);
-    await updateDoc(staffRef, {
-      assignedTasks: getArrayRemove(taskId),
-      updatedAt: getServerTimestamp()
-    });
-    
-    return true;
-  } catch (error) {
-    console.error('タスクの割り当て解除中にエラーが発生しました:', error);
-    throw error;
-  }
-};
-
-/**
- * スタッフに割り当てられたタスク一覧を取得する
- * @param {string} staffId - スタッフのID
- * @returns {Promise<Array>} タスク情報の配列
- */
-export const getStaffTasks = async (staffId) => {
-  try {
-    const tasksQuery = query(
-      collection(db, 'tasks'),
-      where('assignedTo', '==', staffId),
-      where('completed', '==', false),
-      orderBy('dueDate')
-    );
-    
-    const querySnapshot = await getDocs(tasksQuery);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
-  } catch (error) {
-    console.error(`スタッフ ${staffId} のタスク取得中にエラーが発生しました:`, error);
-    throw error;
-  }
-};
-
-/**
- * スキル/資格のマスターリストを取得する
- * @returns {Promise<Object>} スキルと資格のリスト
- */
-export const getSkillsMasterList = async () => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.getSkillsMasterList();
-  }
-  
-  try {
-    const docRef = doc(db, 'settings', 'skillsMaster');
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return docSnap.data();
-    } else {
-      // デフォルト値を返す
-      return { 
-        skills: [], 
-        certifications: [] 
-      };
-    }
-  } catch (error) {
-    console.error('スキル/資格マスターリストの取得中にエラーが発生しました:', error);
-    throw error;
-  }
-};
-
-/**
- * スキル/資格のマスターリストを更新する
- * @param {Object} data - スキルと資格データ
- * @returns {Promise<boolean>} 成功した場合はtrue
- */
-export const updateSkillsMasterList = async (data) => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.updateSkillsMasterList(data);
-  }
-  
-  try {
-    const docRef = doc(db, 'settings', 'skillsMaster');
-    await setDoc(docRef, {
-      ...data,
-      updatedAt: getServerTimestamp()
-    }, { merge: true });
-    return true;
-  } catch (error) {
-    console.error('スキル/資格マスターリストの更新中にエラーが発生しました:', error);
-    throw error;
-  }
-};
-
-/**
- * シフト種類のマスターリストを取得する
- * @returns {Promise<Object>} シフト種類とステータスのリスト
- */
-export const getShiftsMasterList = async () => {
-  // モックモードの場合はモック実装を使用
-  if (isMockMode()) {
-    return mockFirestoreUtils.getShiftsMasterList();
-  }
-  
-  try {
-    const docRef = doc(db, 'settings', 'shiftsMaster');
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return docSnap.data();
-    } else {
-      // デフォルト値を返す
-      return { 
-        types: [], 
-        statuses: [] 
-      };
-    }
-  } catch (error) {
-    console.error('シフトマスターリストの取得中にエラーが発生しました:', error);
-    throw error;
-  }
+  await deleteDoc(doc(db, 'harvests', harvestId));
+  return true;
 };
 
 // ============== 汎用関数 ==============
@@ -1726,7 +1295,7 @@ export const formatFirestoreData = (data) => {
   const timestampFields = [
     'timestamp', 'createdAt', 'updatedAt', 'plantDate', 
     'transplantDate', 'fertilizeDate', 'dueDate', 'completedAt',
-    'resolvedAt'
+    'resolvedAt', 'harvestDate'
   ];
   
   timestampFields.forEach(field => {

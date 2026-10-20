@@ -87,29 +87,10 @@ const Crops = () => {
           
           setCropHouses(housesData);
         } else {
-          // データが存在しない場合はダミーデータを使用
-          const dummyCrops = [
-            { id: 1, name: '長期ミニトマト R6', season: '春-夏', growthDays: 90, avgYield: '15kg/㎡', currentHouses: ['温室ハウス1'] },
-            { id: 2, name: '葉レタス サンチュ', season: '秋-冬', growthDays: 45, avgYield: '5kg/㎡', currentHouses: ['温室ハウス4'] },
-            { id: 3, name: 'キュウリ 夏すずみ', season: '夏', growthDays: 60, avgYield: '10kg/㎡', currentHouses: ['温室ハウス2'] },
-            { id: 4, name: 'パプリカ オレンジ', season: '春-夏', growthDays: 120, avgYield: '8kg/㎡', currentHouses: ['温室ハウス3'] },
-            { id: 5, name: 'ナス 黒真珠', season: '夏', growthDays: 80, avgYield: '12kg/㎡', currentHouses: ['温室ハウス5'] },
-            { id: 6, name: 'イチゴ あまおう', season: '冬-春', growthDays: 150, avgYield: '6kg/㎡', currentHouses: [] },
-            { id: 7, name: 'メロン アンデス', season: '夏', growthDays: 100, avgYield: '4kg/㎡', currentHouses: [] },
-            { id: 8, name: 'スイカ 夏小町', season: '夏', growthDays: 90, avgYield: '9kg/㎡', currentHouses: [] }
-          ];
-          setCrops(dummyCrops);
-          
-          // ダミーデータから栽培シーズンのリストを作成
-          const seasons = [...new Set(dummyCrops.map(crop => crop.season))].filter(Boolean);
-          setAvailableSeasons(seasons);
-          
-          // ダミーのハウスデータを作成
-          const housesData = {};
-          dummyCrops.forEach(crop => {
-            housesData[crop.id] = crop.currentHouses || [];
-          });
-          setCropHouses(housesData);
+          // 登録された作物が無ければ空のまま（見本の作物は表示しない）
+          setCrops([]);
+          setAvailableSeasons([]);
+          setCropHouses({});
         }
       } catch (err) {
         console.error('作物データの取得中にエラーが発生しました:', err);
