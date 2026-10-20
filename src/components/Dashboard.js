@@ -286,10 +286,7 @@ const Dashboard = () => {
       {isUsingDummyData && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-700">
           <p className="font-medium">注意</p>
-          <p>Firestoreデータが見つからないため、ダミーデータを表示しています。設定ページからデータベースの初期化を行ってください。</p>
-          <Link to="/settings" className="mt-2 inline-block text-sm text-yellow-800 hover:underline">
-            管理者設定ページに移動する →
-          </Link>
+          <p>Firestoreのデータを取得できなかったため、ダミーデータを表示しています。ネットワークとログイン状態を確認してください。</p>
         </div>
       )}
       
