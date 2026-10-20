@@ -2,7 +2,7 @@
 
 | ファイル | 役割 |
 |---|---|
-| `sensor.py` | DHT22 の温度・湿度を `environmental_data` に1分ごとに送る |
+| `sensor.py` | DHT22 の温度・湿度を `environmental_data` に1分ごとに送る（10分間送信できなければ終了し、systemd が再起動する） |
 | `alert_monitor.py` | 全ハウスの最新データを見張り、閾値を外れたらアラートを作る（戻ったら自動解決） |
 | `farm-sensor.service` / `farm-alert-monitor.service` | 上の2つを常時動かす systemd の設定 |
 
@@ -11,6 +11,10 @@
 **`serviceAccount.json` は Git に入れないこと。**
 
 ユーザー名が `saino-rasp22` 以外の Pi で使うときは、`.service` ファイルの `User=` とパスを書き換える。
+
+サービスを止めるときは `pkill` ではなく `sudo systemctl stop farm-sensor` を使う
+（`pkill -f sensor.py` だとセンサー読み取り用の補助プロセス `libgpiod_pulsein` が残り、
+GPIO4 がふさがって次に起動したとき `Unable to set line 4 to input` になる）。
 
 ## アラートの見張り（alert_monitor.py）
 
