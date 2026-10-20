@@ -1,250 +1,182 @@
 // reportGenerator.js
-// レポートデータを生成するユーティリティ関数
+// 収穫記録（harvests コレクション）からレポートデータを集計するユーティリティ関数
+//
+// harvests のドキュメント:
+//   { harvestDate: Timestamp, houseId, houseName, cropId, cropName, quantity: kg, notes }
+// 収穫記録は統計・レポート画面の「収穫記録」から登録する。
+//
+// Firestore では日付だけで絞り込み（複合インデックス不要）、ハウス・作物の絞り込みは画面側で行う。
 
-import { 
-  collection, 
-  getDocs, 
-  query, 
-  where, 
+import {
+  collection,
+  getDocs,
+  query,
+  where,
   orderBy,
-  Timestamp 
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { formatFirestoreData } from '../firestoreUtils';
 
+const endOfDay = (date) => {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
+const startOfDay = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 /**
- * 作物別の生産量データを取得する
+ * 期間内の収穫記録を取得する（古い順）
+ * @param {Date} startDate - 開始日
+ * @param {Date} endDate - 終了日（その日の終わりまで含む）
+ * @returns {Promise<Array>} 収穫記録の配列
+ */
+export const getHarvests = async (startDate, endDate) => {
+  const harvestsQuery = query(
+    collection(db, 'harvests'),
+    where('harvestDate', '>=', Timestamp.fromDate(startOfDay(startDate))),
+    where('harvestDate', '<=', Timestamp.fromDate(endOfDay(endDate))),
+    orderBy('harvestDate', 'asc')
+  );
+  const querySnapshot = await getDocs(harvestsQuery);
+  return querySnapshot.docs.map(doc => formatFirestoreData({
+    id: doc.id,
+    ...doc.data()
+  }));
+};
+
+// 作物の絞り込み（作物マスタの ID でも、名前の一致でも当てはまる）
+const matchesCrop = (harvest, crop) =>
+  !crop || harvest.cropId === crop.id || harvest.cropName === crop.name;
+
+const sumQuantity = (harvests) =>
+  harvests.reduce((sum, h) => sum + (Number(h.quantity) || 0), 0);
+
+const groupBy = (items, keyOf) => items.reduce((groups, item) => {
+  const key = keyOf(item);
+  (groups[key] = groups[key] || []).push(item);
+  return groups;
+}, {});
+
+const round1 = (value) => Math.round(value * 10) / 10;
+
+/**
+ * 作物別の生産量（今期・前期・前年同期）
+ * 前期は今期の直前の同じ長さの期間、前年同期は1年前の同じ期間
  * @param {Date} startDate - 開始日
  * @param {Date} endDate - 終了日
- * @param {string} houseId - ハウスID (オプション)
- * @returns {Promise<Array>} 生産量データの配列
+ * @param {string} houseId - ハウスID（省略可）
+ * @returns {Promise<Array<{name: string, 今期: number, 前期: number, 前年同期: number}>>}
  */
 export const getProductionReport = async (startDate, endDate, houseId = null) => {
-  try {
-    // Firestoreのクエリを構築
-    let harvestsQuery;
-    
-    if (houseId) {
-      harvestsQuery = query(
-        collection(db, 'harvests'),
-        where('harvestDate', '>=', Timestamp.fromDate(startDate)),
-        where('harvestDate', '<=', Timestamp.fromDate(endDate)),
-        where('houseId', '==', houseId),
-        orderBy('harvestDate', 'asc')
-      );
-    } else {
-      harvestsQuery = query(
-        collection(db, 'harvests'),
-        where('harvestDate', '>=', Timestamp.fromDate(startDate)),
-        where('harvestDate', '<=', Timestamp.fromDate(endDate)),
-        orderBy('harvestDate', 'asc')
-      );
-    }
-    
-    const querySnapshot = await getDocs(harvestsQuery);
-    
-    // データをフォーマット
-    const harvestsData = querySnapshot.docs.map(doc => formatFirestoreData({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    if (harvestsData.length === 0) {
-      return generateDummyProductionData();
-    }
-    
-    // 作物ごとの集計
-    const cropSummary = {};
-    
-    harvestsData.forEach(harvest => {
-      const { cropName, quantity, previousMonthQuantity, previousYearQuantity } = harvest;
-      
-      if (!cropSummary[cropName]) {
-        cropSummary[cropName] = {
-          name: cropName,
-          当月: 0,
-          前月: 0,
-          前年同月: 0
-        };
-      }
-      
-      cropSummary[cropName].当月 += quantity || 0;
-      cropSummary[cropName].前月 += previousMonthQuantity || 0;
-      cropSummary[cropName].前年同月 += previousYearQuantity || 0;
+  const start = startOfDay(startDate);
+  const end = endOfDay(endDate);
+  const length = end.getTime() - start.getTime();
+  const prevStart = new Date(start.getTime() - length - 1);
+  const prevEnd = new Date(start.getTime() - 1);
+  const lastYearStart = new Date(start); lastYearStart.setFullYear(start.getFullYear() - 1);
+  const lastYearEnd = new Date(end); lastYearEnd.setFullYear(end.getFullYear() - 1);
+
+  const [current, previous, lastYear] = await Promise.all([
+    getHarvests(start, end),
+    getHarvests(prevStart, prevEnd),
+    getHarvests(lastYearStart, lastYearEnd)
+  ]);
+  const inHouse = (h) => !houseId || h.houseId === houseId;
+
+  const summary = {};
+  const add = (harvests, key) => {
+    harvests.filter(inHouse).forEach((h) => {
+      const name = h.cropName || '（作物未設定）';
+      summary[name] = summary[name] || { name, 今期: 0, 前期: 0, 前年同期: 0 };
+      summary[name][key] += Number(h.quantity) || 0;
     });
-    
-    return Object.values(cropSummary);
-  } catch (error) {
-    console.error('生産量レポートの取得中にエラーが発生しました:', error);
-    return generateDummyProductionData();
-  }
+  };
+  add(current, '今期');
+  add(previous, '前期');
+  add(lastYear, '前年同期');
+
+  // 今期に収穫のある作物を先に、多い順に並べる
+  return Object.values(summary)
+    .map(row => ({ ...row, 今期: round1(row.今期), 前期: round1(row.前期), 前年同期: round1(row.前年同期) }))
+    .sort((a, b) => b.今期 - a.今期);
 };
 
 /**
- * ハウスごとの生産性を比較するデータを取得する
+ * ハウス別の生産性（面積あたりの収穫量）
+ * 面積はハウス情報の area（m²）を使う。未登録のハウスは生産性 0
  * @param {Date} startDate - 開始日
  * @param {Date} endDate - 終了日
- * @param {string} cropId - 作物ID (オプション)
- * @returns {Promise<Array>} 生産性データの配列
+ * @param {Object} crop - 作物（{id, name}。省略可）
+ * @param {Array} houses - ハウス一覧（面積の取得に使う）
+ * @returns {Promise<Array<{name: string, totalQuantity: number, totalArea: number, productivity: number}>>}
  */
-export const getProductivityReport = async (startDate, endDate, cropId = null) => {
-  try {
-    // Firestoreのクエリを構築
-    let harvestsQuery;
-    
-    if (cropId) {
-      harvestsQuery = query(
-        collection(db, 'harvests'),
-        where('harvestDate', '>=', Timestamp.fromDate(startDate)),
-        where('harvestDate', '<=', Timestamp.fromDate(endDate)),
-        where('cropId', '==', cropId),
-        orderBy('harvestDate', 'asc')
-      );
-    } else {
-      harvestsQuery = query(
-        collection(db, 'harvests'),
-        where('harvestDate', '>=', Timestamp.fromDate(startDate)),
-        where('harvestDate', '<=', Timestamp.fromDate(endDate)),
-        orderBy('harvestDate', 'asc')
-      );
-    }
-    
-    const querySnapshot = await getDocs(harvestsQuery);
-    
-    // データをフォーマット
-    const harvestsData = querySnapshot.docs.map(doc => formatFirestoreData({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    if (harvestsData.length === 0) {
-      return generateDummyProductivityData();
-    }
-    
-    // ハウスごとの集計
-    const houseSummary = {};
-    
-    harvestsData.forEach(harvest => {
-      const { houseName, quantity, area } = harvest;
-      
-      if (!houseSummary[houseName]) {
-        houseSummary[houseName] = {
-          name: houseName,
-          totalQuantity: 0,
-          totalArea: 0,
-          productivity: 0
-        };
-      }
-      
-      houseSummary[houseName].totalQuantity += quantity || 0;
-      
-      // 面積は最新のものを使用
-      if (area) {
-        houseSummary[houseName].totalArea = area;
-      }
-    });
-    
-    // 生産性を計算（単位面積あたりの収穫量）
-    Object.values(houseSummary).forEach(house => {
-      if (house.totalArea > 0) {
-        house.productivity = house.totalQuantity / house.totalArea;
-      }
-    });
-    
-    return Object.values(houseSummary);
-  } catch (error) {
-    console.error('生産性レポートの取得中にエラーが発生しました:', error);
-    return generateDummyProductivityData();
-  }
+export const getProductivityReport = async (startDate, endDate, crop = null, houses = []) => {
+  const harvests = (await getHarvests(startDate, endDate)).filter(h => matchesCrop(h, crop));
+  const byHouse = groupBy(harvests, h => h.houseId || h.houseName || '（ハウス未設定）');
+
+  return Object.entries(byHouse).map(([houseKey, records]) => {
+    const house = houses.find(item => item.id === houseKey);
+    const totalQuantity = round1(sumQuantity(records));
+    const totalArea = Number(house?.area) || 0;
+    return {
+      name: house?.name || records[0].houseName || houseKey,
+      totalQuantity,
+      totalArea,
+      productivity: totalArea > 0 ? totalQuantity / totalArea : 0
+    };
+  }).sort((a, b) => b.productivity - a.productivity);
 };
 
 /**
- * 作物ごとの収穫量推移データを取得する
- * @param {number} months - 何ヶ月分のデータを取得するか
- * @param {string} cropId - 作物ID (オプション)
- * @returns {Promise<Array>} 月別の収穫量データの配列
+ * 作物ごとの月別収穫量の推移（今月を含む直近 months か月）
+ * 収穫の無い月・作物は 0 で埋める（グラフと表で全ての月・作物を並べるため）
+ * @param {number} months - 何か月分か
+ * @param {Object} crop - 作物（{id, name}。省略可）
+ * @returns {Promise<Array<{month: string}>>} month は "2026-10" の形
  */
-export const getCropTrendsReport = async (months = 12, cropId = null) => {
-  try {
-    // 現在から指定月数前までのタイムスタンプを計算
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
-    
-    // Firestoreのクエリを構築
-    let harvestsQuery;
-    
-    if (cropId) {
-      harvestsQuery = query(
-        collection(db, 'harvests'),
-        where('harvestDate', '>=', Timestamp.fromDate(startDate)),
-        where('cropId', '==', cropId),
-        orderBy('harvestDate', 'asc')
-      );
-    } else {
-      harvestsQuery = query(
-        collection(db, 'harvests'),
-        where('harvestDate', '>=', Timestamp.fromDate(startDate)),
-        orderBy('harvestDate', 'asc')
-      );
-    }
-    
-    const querySnapshot = await getDocs(harvestsQuery);
-    
-    // データをフォーマット
-    const harvestsData = querySnapshot.docs.map(doc => formatFirestoreData({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    if (harvestsData.length === 0) {
-      return generateDummyCropTrendsData(months);
-    }
-    
-    // 月ごと、作物ごとの集計
-    const monthCropSummary = {};
-    
-    harvestsData.forEach(harvest => {
-      const { cropName, harvestDate, quantity } = harvest;
-      
-      if (!harvestDate) return;
-      
-      // 月のキーを作成 (例: "2023-01")
-      const monthKey = `${harvestDate.getFullYear()}-${String(harvestDate.getMonth() + 1).padStart(2, '0')}`;
-      
-      if (!monthCropSummary[monthKey]) {
-        monthCropSummary[monthKey] = {
-          month: monthKey
-        };
-      }
-      
-      if (!monthCropSummary[monthKey][cropName]) {
-        monthCropSummary[monthKey][cropName] = 0;
-      }
-      
-      monthCropSummary[monthKey][cropName] += quantity || 0;
-    });
-    
-    // 月の順にソート
-    return Object.values(monthCropSummary).sort((a, b) => a.month.localeCompare(b.month));
-  } catch (error) {
-    console.error('収穫量推移レポートの取得中にエラーが発生しました:', error);
-    return generateDummyCropTrendsData(months);
+export const getCropTrendsReport = async (months = 12, crop = null) => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+  const harvests = (await getHarvests(start, now)).filter(h => matchesCrop(h, crop));
+  if (harvests.length === 0) return [];
+
+  const monthKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  const cropNames = [...new Set(harvests.map(h => h.cropName || '（作物未設定）'))];
+
+  const rows = [];
+  for (let i = 0; i < months; i++) {
+    const date = new Date(start.getFullYear(), start.getMonth() + i, 1);
+    const row = { month: monthKey(date) };
+    cropNames.forEach(name => { row[name] = 0; });
+    rows.push(row);
   }
+  harvests.forEach((h) => {
+    if (!(h.harvestDate instanceof Date)) return;
+    const row = rows.find(r => r.month === monthKey(h.harvestDate));
+    if (row) row[h.cropName || '（作物未設定）'] += Number(h.quantity) || 0;
+  });
+  rows.forEach(row => cropNames.forEach(name => { row[name] = round1(row[name]); }));
+  return rows;
 };
 
 /**
- * 収穫データをCSV形式に変換する
- * @param {Array} data - 収穫データの配列
- * @param {string} reportType - レポートの種類
+ * レポートデータをCSV形式に変換する
+ * @param {Array} data - レポートデータの配列
  * @returns {string} CSV形式のデータ
  */
-export const convertToCSV = (data, reportType) => {
+export const convertToCSV = (data) => {
   if (!data || data.length === 0) return '';
-  
+
   // ヘッダー行を作成
   const headers = Object.keys(data[0]);
   const headerRow = headers.join(',');
-  
+
   // データ行を作成
   const rows = data.map(item => {
     return headers.map(header => {
@@ -258,63 +190,7 @@ export const convertToCSV = (data, reportType) => {
         : item[header];
     }).join(',');
   });
-  
+
   // ヘッダー行とデータ行を結合
   return [headerRow, ...rows].join('\n');
-};
-
-// ===== ダミーデータ生成関数 =====
-
-/**
- * 生産量レポートのダミーデータを生成する
- * @returns {Array} ダミーデータ
- */
-const generateDummyProductionData = () => {
-  return [
-    { name: 'トマト', 当月: 123, 前月: 110, 前年同月: 95 },
-    { name: 'キュウリ', 当月: 85, 前月: 79, 前年同月: 70 },
-    { name: 'パプリカ', 当月: 65, 前月: 59, 前年同月: 50 },
-    { name: 'レタス', 当月: 40, 前月: 43, 前年同月: 35 },
-    { name: 'ナス', 当月: 75, 前月: 68, 前年同月: 60 },
-  ];
-};
-
-/**
- * 生産性レポートのダミーデータを生成する
- * @returns {Array} ダミーデータ
- */
-const generateDummyProductivityData = () => {
-  return [
-    { name: '第1ハウス', totalQuantity: 450, totalArea: 100, productivity: 4.5 },
-    { name: '第2ハウス', totalQuantity: 380, totalArea: 80, productivity: 4.75 },
-    { name: '第3ハウス', totalQuantity: 520, totalArea: 120, productivity: 4.33 },
-    { name: '第4ハウス', totalQuantity: 320, totalArea: 80, productivity: 4.0 },
-    { name: '第5ハウス', totalQuantity: 280, totalArea: 60, productivity: 4.67 },
-  ];
-};
-
-/**
- * 収穫量推移レポートのダミーデータを生成する
- * @param {number} months - 生成する月数
- * @returns {Array} ダミーデータ
- */
-const generateDummyCropTrendsData = (months = 12) => {
-  const data = [];
-  const now = new Date();
-  
-  for (let i = 0; i < months; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    
-    data.unshift({
-      month: monthKey,
-      'トマト': Math.floor(80 + Math.random() * 40),
-      'キュウリ': Math.floor(50 + Math.random() * 30),
-      'パプリカ': Math.floor(40 + Math.random() * 20),
-      'レタス': Math.floor(30 + Math.random() * 15),
-      'ナス': Math.floor(50 + Math.random() * 25)
-    });
-  }
-  
-  return data;
 };

@@ -1220,6 +1220,45 @@ const getServerTimestamp = () => {
 };
 
 
+// ============== 収穫記録の関数 ==============
+
+/**
+ * 収穫を記録する（統計・レポートの集計に使う）
+ * @param {Object} harvestData - harvestDate(Date), houseId, houseName, cropId, cropName, quantity(kg), notes
+ * @returns {Promise<string>} 追加した記録のID
+ */
+export const addHarvest = async (harvestData) => {
+  if (isMockMode()) {
+    return mockFirestoreUtils.addHarvest && mockFirestoreUtils.addHarvest(harvestData);
+  }
+
+  const docRef = await addDoc(collection(db, 'harvests'), {
+    harvestDate: Timestamp.fromDate(new Date(harvestData.harvestDate)),
+    houseId: harvestData.houseId || '',
+    houseName: harvestData.houseName || '',
+    cropId: harvestData.cropId || '',
+    cropName: harvestData.cropName || '',
+    quantity: Number(harvestData.quantity),
+    notes: harvestData.notes || '',
+    createdAt: getServerTimestamp()
+  });
+  return docRef.id;
+};
+
+/**
+ * 収穫記録を削除する
+ * @param {string} harvestId - 記録のID
+ * @returns {Promise<boolean>} 成功した場合はtrue
+ */
+export const deleteHarvest = async (harvestId) => {
+  if (isMockMode()) {
+    return mockFirestoreUtils.deleteHarvest && mockFirestoreUtils.deleteHarvest(harvestId);
+  }
+
+  await deleteDoc(doc(db, 'harvests', harvestId));
+  return true;
+};
+
 // ============== 汎用関数 ==============
 
 /**
@@ -1256,7 +1295,7 @@ export const formatFirestoreData = (data) => {
   const timestampFields = [
     'timestamp', 'createdAt', 'updatedAt', 'plantDate', 
     'transplantDate', 'fertilizeDate', 'dueDate', 'completedAt',
-    'resolvedAt'
+    'resolvedAt', 'harvestDate'
   ];
   
   timestampFields.forEach(field => {

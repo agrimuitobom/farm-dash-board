@@ -20,16 +20,16 @@ const ProductionReport = ({ data, reportTitle, unit = 'kg' }) => {
   const { data: chartData, bars } = formatBarChartData(
     data,
     'name',
-    ['当月', '前月', '前年同月'],
+    ['今期', '前期', '前年同期'],
     ['#4f46e5', '#60a5fa', '#93c5fd']
   );
 
   // 合計の計算
   const totals = data.reduce(
     (acc, item) => {
-      acc.current += item.当月 || 0;
-      acc.previous += item.前月 || 0;
-      acc.previousYear += item.前年同月 || 0;
+      acc.current += item.今期 || 0;
+      acc.previous += item.前期 || 0;
+      acc.previousYear += item.前年同期 || 0;
       return acc;
     },
     { current: 0, previous: 0, previousYear: 0 }
@@ -53,11 +53,11 @@ const ProductionReport = ({ data, reportTitle, unit = 'kg' }) => {
       {/* サマリー部分 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 border-b">
         <div className="bg-white p-3 rounded shadow-sm">
-          <p className="text-sm text-gray-500 mb-1">当月合計</p>
+          <p className="text-sm text-gray-500 mb-1">今期合計</p>
           <p className="text-xl font-bold">{totals.current.toFixed(1)} {unit}</p>
         </div>
         <div className="bg-white p-3 rounded shadow-sm">
-          <p className="text-sm text-gray-500 mb-1">前月比</p>
+          <p className="text-sm text-gray-500 mb-1">前期比</p>
           <div className="flex items-center">
             <p className={`text-xl font-bold ${monthGrowth.className}`}>{monthGrowth.value}</p>
             {monthGrowth.value.startsWith('+') ? (
@@ -68,7 +68,7 @@ const ProductionReport = ({ data, reportTitle, unit = 'kg' }) => {
           </div>
         </div>
         <div className="bg-white p-3 rounded shadow-sm">
-          <p className="text-sm text-gray-500 mb-1">前年同月比</p>
+          <p className="text-sm text-gray-500 mb-1">前年同期比</p>
           <div className="flex items-center">
             <p className={`text-xl font-bold ${yearGrowth.className}`}>{yearGrowth.value}</p>
             {yearGrowth.value.startsWith('+') ? (
@@ -113,16 +113,16 @@ const ProductionReport = ({ data, reportTitle, unit = 'kg' }) => {
                   作物
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  当月
+                  今期
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  前月
+                  前期
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  前年同月
+                  前年同期
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  前月比
+                  前期比
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   前年比
@@ -131,8 +131,8 @@ const ProductionReport = ({ data, reportTitle, unit = 'kg' }) => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {data.map((item, index) => {
-                const monthlyGrowth = formatGrowthRate(item.当月, item.前月);
-                const yearlyGrowth = formatGrowthRate(item.当月, item.前年同月);
+                const monthlyGrowth = formatGrowthRate(item.今期, item.前期);
+                const yearlyGrowth = formatGrowthRate(item.今期, item.前年同期);
                 
                 return (
                   <tr key={index} className="hover:bg-gray-50">
@@ -140,13 +140,13 @@ const ProductionReport = ({ data, reportTitle, unit = 'kg' }) => {
                       <div className="font-medium text-gray-900">{item.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.当月?.toFixed(1) || '-'} {unit}
+                      {item.今期?.toFixed(1) || '-'} {unit}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.前月?.toFixed(1) || '-'} {unit}
+                      {item.前期?.toFixed(1) || '-'} {unit}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.前年同月?.toFixed(1) || '-'} {unit}
+                      {item.前年同期?.toFixed(1) || '-'} {unit}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${monthlyGrowth.className}`}>
