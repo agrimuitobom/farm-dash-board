@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import MobileNav from '../components/mobile/MobileNav';
 import TabNavigation from '../components/mobile/TabNavigation';
@@ -204,9 +203,6 @@ const Houses = () => {
       <div>
         <p className="font-medium text-red-800">エラー</p>
         <p className="text-red-700">{error}</p>
-        <Link to="/settings" className="text-red-800 hover:underline font-medium mt-1 inline-block">
-          管理者設定ページへ移動
-        </Link>
       </div>
     </div>
   );

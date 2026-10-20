@@ -4,7 +4,6 @@ import {
   Home, 
   BarChart2, 
   Calendar, 
-  Settings, 
   List, 
   AlertTriangle,
   Thermometer,
@@ -27,7 +26,6 @@ const Sidebar = () => {
     { icon: AlertTriangle, text: 'アラート設定', path: '/alerts' },
     { icon: Clipboard, text: '訪問者記録', path: '/visitors' },
     { icon: BookOpen, text: '教育・訓練記録', path: '/trainings' },
-    { icon: Settings, text: '設定', path: '/settings' },
   ];
 
   const toggleSidebar = () => {
