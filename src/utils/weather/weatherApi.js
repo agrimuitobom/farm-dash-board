@@ -106,6 +106,45 @@ export const getCurrentWeather = async () => {
   }
 };
 
+const HOURLY_URL =
+  'https://api.open-meteo.com/v1/forecast' +
+  `?latitude=${SAIJO_LAT}&longitude=${SAIJO_LON}` +
+  '&hourly=temperature_2m,relative_humidity_2m' +
+  '&past_days=1&forecast_days=1&timezone=Asia%2FTokyo';
+
+/**
+ * Open-Meteo の1時間ごとの値から、指定した時間内の過去分だけを取り出す
+ * @param {Object} data Open-Meteo /v1/forecast（hourly）の応答
+ * @param {Date} now 現在時刻
+ * @param {number} hours 何時間前まで取り出すか
+ * @returns {Array<{timestamp: Date, temperature: number, humidity: number}>} 古い順
+ */
+export const parseRecentHourlyWeather = (data, now = new Date(), hours = 24) => {
+  const { time = [], temperature_2m: temps = [], relative_humidity_2m: hums = [] } = data.hourly || {};
+  const from = now.getTime() - hours * 60 * 60 * 1000;
+  return time
+    .map((t, i) => ({ timestamp: new Date(t), temperature: temps[i], humidity: hums[i] }))
+    .filter(r => r.timestamp.getTime() >= from && r.timestamp.getTime() <= now.getTime());
+};
+
+/**
+ * 西条市の過去24時間の気温・湿度（1時間ごと）を取得する
+ * @returns {Promise<Array>} 古い順の配列。取得できなければ空配列
+ */
+export const getRecentHourlyWeather = async (hours = 24) => {
+  try {
+    const response = await fetch(HOURLY_URL);
+    if (!response.ok) {
+      console.warn(`Open-Meteo の呼び出しに失敗しました: ${response.status}`);
+      return [];
+    }
+    return parseRecentHourlyWeather(await response.json(), new Date(), hours);
+  } catch (error) {
+    console.error('天気の推移データの取得に失敗しました:', error);
+    return [];
+  }
+};
+
 /**
  * 風向きを方角（16方位）に変換
  * @param {number} degrees 風向き（度）
