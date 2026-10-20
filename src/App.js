@@ -21,8 +21,6 @@ import Calendar from './pages/Calendar';
 import MobileCalendar from './pages/MobileCalendar';
 import Alerts from './pages/Alerts';
 import AdminSettings from './pages/AdminSettings';
-import Staff from './pages/Staff';
-import Shifts from './pages/Shifts';
 import Tasks from './pages/Tasks';
 import Visitors from './pages/Visitors';
 import Trainings from './pages/Trainings';
@@ -68,8 +66,6 @@ function MainLayout() {
             {/* まだモバイル最適化されていないページ */}
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<AdminSettings />} />
-            <Route path="/staff" element={<Staff />} />
-            <Route path="/shifts" element={<Shifts />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/visitors" element={<Visitors />} />
             <Route path="/trainings" element={<Trainings />} />

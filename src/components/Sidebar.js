@@ -8,10 +8,8 @@ import {
   List, 
   AlertTriangle,
   Thermometer,
-  Users,
   HelpCircle,
   LogOut,
-  Clock,
   Clipboard,
   BookOpen
 } from 'lucide-react';
@@ -27,8 +25,6 @@ const Sidebar = () => {
     { icon: BarChart2, text: '統計・レポート', path: '/reports' },
     { icon: Calendar, text: '作業カレンダー', path: '/calendar' },
     { icon: AlertTriangle, text: 'アラート設定', path: '/alerts' },
-    { icon: Users, text: 'スタッフ管理', path: '/staff' },
-    { icon: Clock, text: 'シフト管理', path: '/shifts' },
     { icon: Clipboard, text: '訪問者記録', path: '/visitors' },
     { icon: BookOpen, text: '教育・訓練記録', path: '/trainings' },
     { icon: Settings, text: '設定', path: '/settings' },
