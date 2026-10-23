@@ -25,6 +25,7 @@ import {
 import { getHouseThresholds } from '../utils/environmentalRanges';
 import { isKioskMode } from '../utils/kioskMode';
 import { getCurrentWeather, getRecentHourlyWeather } from '../utils/weather/weatherApi';
+import DailyForecast from '../components/DailyForecast';
 
 // この時間データが来なければ「通信なし」とする（センサーは1分ごとに送信）
 const STALE_MS = 10 * 60 * 1000;
@@ -174,7 +175,7 @@ const OutdoorPanel = ({ data, now, onSelect, source, description }) => {
       onClick={() => onSelect(fromWeather
         ? { id: 'outdoor', name: '外気（西条市）', source: 'weather' }
         : { id: 'outdoor', name: '外気' })}
-      className="w-[300px] flex-shrink-0 bg-white rounded-xl shadow-sm p-5 flex flex-col text-left border-l-8 active:bg-gray-50"
+      className="flex-1 min-h-0 bg-white rounded-xl shadow-sm px-5 py-4 flex flex-col text-left border-l-8 active:bg-gray-50"
       style={{ borderLeftColor: fromWeather ? WEATHER_ACCENT : STATUS_STYLES[status.key].color }}
     >
       <p className="text-2xl font-bold text-gray-900">外気</p>
@@ -183,14 +184,12 @@ const OutdoorPanel = ({ data, now, onSelect, source, description }) => {
         <p className="text-sm text-gray-500 flex items-center">
           <Thermometer className="h-4 w-4 mr-1" aria-hidden="true" />気温
         </p>
-        <p className="text-7xl font-semibold text-gray-900 leading-none mt-1">
+        <p className="text-6xl font-semibold text-gray-900 leading-none mt-1">
           {formatNumber(data?.temperature, 1)}
           <span className="text-3xl font-normal text-gray-500 ml-1">°C</span>
         </p>
-        <p className="text-sm text-gray-500 flex items-center mt-6">
-          <Droplets className="h-4 w-4 mr-1" aria-hidden="true" />湿度
-        </p>
-        <p className="text-4xl font-semibold text-gray-900 leading-none mt-1">
+        <p className="text-3xl font-semibold text-gray-900 leading-none mt-3 flex items-center">
+          <Droplets className="h-6 w-6 mr-1 text-gray-400" aria-label="湿度" />
           {formatNumber(data?.humidity, 0)}
           <span className="text-xl font-normal text-gray-500 ml-1">%</span>
         </p>
@@ -406,17 +405,29 @@ const Display = () => {
       </header>
 
       <main className="flex-1 min-h-0 flex gap-3 p-3">
-        {hasOutdoorSensor ? (
-          <OutdoorPanel data={outdoorSensor} now={now} onSelect={setSelected} source="sensor" />
-        ) : weather && (
-          <OutdoorPanel
-            data={{ temperature: weather.temp, humidity: weather.humidity, timestamp: weather.timestamp }}
-            now={now}
-            onSelect={setSelected}
-            source="weather"
-            description={weather.weather.description}
-          />
-        )}
+        <div className="w-[300px] flex-shrink-0 flex flex-col gap-3 min-h-0">
+          {hasOutdoorSensor ? (
+            <OutdoorPanel data={outdoorSensor} now={now} onSelect={setSelected} source="sensor" />
+          ) : weather ? (
+            <OutdoorPanel
+              data={{ temperature: weather.temp, humidity: weather.humidity, timestamp: weather.timestamp }}
+              now={now}
+              onSelect={setSelected}
+              source="weather"
+              description={weather.weather.description}
+            />
+          ) : (
+            <div className="flex-1" />
+          )}
+          {/* 西条市の今日から5日後までの予報（1時間ごとに更新） */}
+          <div className="flex-shrink-0 bg-white rounded-xl shadow-sm px-4 py-2">
+            <p className="text-sm text-gray-500 flex justify-between">
+              <span>天気予報（西条市）</span>
+              <span className="text-gray-400">Open-Meteo</span>
+            </p>
+            <DailyForecast variant="kiosk" />
+          </div>
+        </div>
 
         {houses === null ? (
           <div className="flex-1 flex items-center justify-center text-xl text-gray-500">読み込み中…</div>

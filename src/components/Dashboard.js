@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import WeatherWidget from './WeatherWidget';
+import DailyForecast from './DailyForecast';
 import { getCurrentWeather } from '../utils/weather/weatherApi';
 import HouseCard from './HouseCard';
 
@@ -369,6 +370,8 @@ const Dashboard = () => {
             <div className="bg-white rounded-lg shadow p-4 lg:col-span-1">
               <h3 className="text-lg font-semibold mb-4">天気予報</h3>
               <WeatherWidget />
+              <h4 className="text-sm font-semibold text-gray-700 mt-4 mb-1">今日から5日後まで</h4>
+              <DailyForecast />
             </div>
             
             <div className="bg-white rounded-lg shadow p-4 lg:col-span-2">
