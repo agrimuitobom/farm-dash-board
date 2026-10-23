@@ -8,3 +8,11 @@ WIFI_PASSWORD = "Wi-Fi のパスワード"
 # メールアドレスは firestore.rules の isSensor() と一致させる
 SENSOR_EMAIL = "sensor@farm-dashboard.local"
 SENSOR_PASSWORD = "センサー用アカウントのパスワード"
+
+# 送信先のハウスID（ダッシュボードの「温室ハウス一覧」で登録したもの）
+LOCATION = "温室ハウス3"
+
+# 土壌水分センサー（つないでいない Pico では SOIL_PIN = None にする）
+SOIL_PIN = 26  # AOUT をつないだピン（GP26 = 31番ピン）
+SOIL_DRY = 50000  # 空気中での値（soil_check.py で測って書き換える）
+SOIL_WET = 22000  # 水に挿したときの値（soil_check.py で測って書き換える）
