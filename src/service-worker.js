@@ -6,10 +6,8 @@
 // See https://cra.link/PWA for general information about Progressive Web Apps.
 
 import { clientsClaim } from 'workbox-core';
-import { ExpirationPlugin } from 'workbox-expiration';
 import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { StaleWhileRevalidate } from 'workbox-strategies';
 
 clientsClaim();
 
@@ -48,23 +46,13 @@ registerRoute(
   createHandlerBoundToURL(process.env.PUBLIC_URL + '/index.html')
 );
 
-// A custom routing rule for Firestore API
-registerRoute(
-  ({ url }) => url.href.includes('firestore.googleapis.com'),
-  new StaleWhileRevalidate({
-    cacheName: 'firebase-api-responses',
-    plugins: [
-      new ExpirationPlugin({
-        // Keep at most 50 entries.
-        maxEntries: 50,
-        // Don't keep any entries for more than 30 days.
-        maxAgeSeconds: 30 * 24 * 60 * 60,
-        // Automatically cleanup if quota is exceeded.
-        purgeOnQuotaError: true,
-      }),
-    ],
-  })
-);
+// Firestore の通信（リアルタイム更新の接続など）は Service Worker でキャッシュしない。
+// キャッシュしようとすると接続が切れたときに「Cache.put() encountered a network error」などが出て、
+// 古いデータを返すおそれもある。オフライン時の扱いは Firestore SDK に任せる。
+// 以前のバージョンが作った Firestore 用のキャッシュは消しておく。
+self.addEventListener('activate', (event) => {
+  event.waitUntil(caches.delete('firebase-api-responses'));
+});
 
 // This allows the web app to trigger skipWaiting via
 // registration.waiting.postMessage({type: 'SKIP_WAITING'})
