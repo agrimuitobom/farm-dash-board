@@ -41,25 +41,9 @@ import {
   getCropHistory,
   moveCropToHistory
 } from '../firestoreUtils';
+import { toDateValue } from '../utils/houseCrops';
 
-// 作物の日付は、保存先では Firestore の Timestamp、入力欄では "yyyy-MM-dd" の文字列になる。
-// どちらで来ても Date にそろえる（読めなければ null）
-const toDateValue = (value) => {
-  if (!value) return null;
-  let date = null;
-  if (typeof value === 'string') {
-    // "yyyy-MM-dd" は日本時間のその日として扱う
-    date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
-  } else if (value instanceof Date) {
-    date = value;
-  } else if (typeof value.toDate === 'function') {
-    date = value.toDate();
-  } else if (typeof value.seconds === 'number') {
-    date = new Date(value.seconds * 1000);
-  }
-  return date && !Number.isNaN(date.getTime()) ? date : null;
-};
-
+// 作物の日付は、保存先では Firestore の Timestamp、入力欄では "yyyy-MM-dd" の文字列になる
 // 日付入力欄（type="date"）に入れる "yyyy-MM-dd"
 const toDateInputValue = (value) => {
   const date = toDateValue(value);
@@ -854,7 +838,7 @@ const HouseDetail = () => {
               <p className="text-gray-500 text-sm">定植日</p>
               <p className="font-medium">
                 {house.plantDate instanceof Date
-                  ? house.plantDate.toLocaleDateString()
+                  ? house.plantDate.toLocaleDateString('ja-JP')
                   : '--'
                 }
               </p>

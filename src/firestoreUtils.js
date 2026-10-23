@@ -29,6 +29,7 @@ import {
 
 // モックFirestoreユーティリティ関数をインポート
 import { mockFirestoreUtils } from './mock/mockFirebase';
+import { withCropSummary, summarizeCrops } from './utils/houseCrops';
 
 // 画像URL正規化ユーティリティをインポート
 import { normalizeImageUrl } from './utils/imageUtils';
@@ -359,9 +360,14 @@ export const updateHouseCrops = async (houseId, crops) => {
       updatedAt: Timestamp.now()
     }));
     
+    // ハウスの作物名と定植日も栽培作物に合わせる（ハウス一覧などの表示・絞り込み用）
+    const { currentCrop, plantDate } = summarizeCrops(crops);
+    
     // ハウスドキュメントを更新
     await updateDoc(houseRef, {
       crops: formattedCrops,
+      currentCrop,
+      plantDate: plantDate ? Timestamp.fromDate(plantDate) : null,
       updatedAt: getServerTimestamp()
     });
     
@@ -452,12 +458,15 @@ export const deleteHouse = async (houseId) => {
 
 // 稼働中のハウスだけに絞り、表示名順に並べる
 // isActive が無い古いハウス（以前のサンプルデータ投入など）も稼働中として扱う
+// 作物名と定植日は、栽培作物（crops）が登録されていればそこから求める
+const toHouse = (docSnap) => withCropSummary({
+  id: docSnap.id,
+  ...formatFirestoreData(docSnap.data())
+});
+
 const toActiveHouses = (querySnapshot) =>
   querySnapshot.docs
-    .map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }))
+    .map(toHouse)
     .filter(house => !house.id.startsWith('_') && house.isActive !== false)
     .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id, 'ja'));
 
@@ -489,10 +498,7 @@ export const getHouseById = async (houseId) => {
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      return {
-        id: docSnap.id,
-        ...formatFirestoreData(docSnap.data())
-      };
+      return toHouse(docSnap);
     } else {
       throw new Error(`ハウスID ${houseId} が見つかりません`);
     }
@@ -514,10 +520,7 @@ export const subscribeToHouse = (houseId, callback) => {
   const docRef = doc(db, 'houses', houseId);
   return onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
-      callback({
-        id: docSnap.id,
-        ...formatFirestoreData(docSnap.data())
-      });
+      callback(toHouse(docSnap));
     } else {
       callback(null);
     }
