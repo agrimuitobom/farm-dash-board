@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Thermometer, Droplets, Wind, AlertTriangle, Calendar, ArrowRightCircle } from 'lucide-react';
+import { Thermometer, Droplets, Sprout, AlertTriangle, Calendar, ArrowRightCircle } from 'lucide-react';
 import { environmentalRanges, getHouseThresholds } from '../utils/environmentalRanges';
 
 // 各作物タイプのBase64エンコードされた単色SVG画像（軽量）
@@ -117,10 +117,10 @@ const HouseCard = ({ house, environmentalData, alertCount = 0 }) => {
                 {environmentalData?.humidity ? Math.round(environmentalData.humidity) : '--'}%
               </span>
             </div>
-            <div className="flex items-center">
-              <Wind className="h-3 w-3 mr-1 text-green-500" />
+            <div className="flex items-center" title="土壌水分">
+              <Sprout className="h-3 w-3 mr-1 text-green-500" />
               <span className={getValueColor('soilMoisture', environmentalData?.soilMoisture)}>
-                {environmentalData?.soilMoisture ? Math.round(environmentalData.soilMoisture) : '--'}%
+                土 {typeof environmentalData?.soilMoisture === 'number' ? Math.round(environmentalData.soilMoisture) : '--'}%
               </span>
             </div>
           </div>

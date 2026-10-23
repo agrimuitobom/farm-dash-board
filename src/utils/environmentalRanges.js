@@ -10,11 +10,10 @@ export const DEFAULT_THRESHOLDS = {
   humidity: { min: 50, max: 80 }
 };
 
-// 土壌水分はセンサー未導入のため、ハウスごとの設定は持たない
+// 土壌水分は値の目安がまだ決まっていないため範囲を持たない（ハウスカードでは色分けしない）
 export const environmentalRanges = {
   temperature: { ...DEFAULT_THRESHOLDS.temperature, unit: '°C' },
-  humidity: { ...DEFAULT_THRESHOLDS.humidity, unit: '%' },
-  soilMoisture: { min: 60, max: 85, unit: '%' }
+  humidity: { ...DEFAULT_THRESHOLDS.humidity, unit: '%' }
 };
 
 const pickNumber = (value, fallback) =>

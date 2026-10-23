@@ -13,6 +13,7 @@ import {
   X,
   Thermometer,
   Droplets,
+  Sprout,
   CloudSun
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -141,6 +142,15 @@ const HouseTile = ({ house, data, now, size, onSelect }) => {
           {formatNumber(data?.humidity, 0)}
           <span className="text-base text-gray-500 ml-0.5">%</span>
         </p>
+        {/* 土壌水分センサーのあるハウスだけ表示する */}
+        {typeof data?.soilMoisture === 'number' && (
+          <p className={`${text.hum} text-gray-700 whitespace-nowrap ${text.compact ? '' : 'mt-1'}`}>
+            <Sprout className="inline h-5 w-5 text-gray-400 mr-1 align-[-2px]" aria-hidden="true" />
+            <span className="text-base text-gray-500 mr-1">土</span>
+            {formatNumber(data.soilMoisture, 0)}
+            <span className="text-base text-gray-500 ml-0.5">%</span>
+          </p>
+        )}
       </div>
       <div className="flex items-center justify-between gap-2 min-w-0">
         <span className="min-w-0 truncate"><StatusBadge status={status} /></span>
@@ -271,7 +281,8 @@ const DetailOverlay = ({ target, onClose }) => {
             .map(r => ({
               time: r.timestamp.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
               temperature: typeof r.temperature === 'number' ? Number(r.temperature.toFixed(1)) : null,
-              humidity: typeof r.humidity === 'number' ? Number(r.humidity.toFixed(1)) : null
+              humidity: typeof r.humidity === 'number' ? Number(r.humidity.toFixed(1)) : null,
+              soilMoisture: typeof r.soilMoisture === 'number' ? Number(r.soilMoisture.toFixed(1)) : null
             }))
         );
       })
@@ -281,6 +292,8 @@ const DetailOverlay = ({ target, onClose }) => {
       });
     return () => { cancelled = true; };
   }, [target.id, target.source]);
+
+  const hasSoil = Array.isArray(history) && history.some(r => r.soilMoisture !== null);
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-100 flex flex-col" onPointerDown={resetTimer}>
@@ -304,9 +317,12 @@ const DetailOverlay = ({ target, onClose }) => {
         ) : history.length === 0 ? (
           <div className="h-full flex items-center justify-center text-xl text-gray-500">過去24時間のデータがありません</div>
         ) : (
-          <div className="h-full grid grid-rows-2 gap-3">
+          <div className={`h-full grid gap-3 ${hasSoil ? 'grid-rows-3' : 'grid-rows-2'}`}>
             <HistoryChart title="気温" unit="°C" dataKey="temperature" color="#ef4444" data={history} />
             <HistoryChart title="湿度" unit="%" dataKey="humidity" color="#3b82f6" data={history} />
+            {hasSoil && (
+              <HistoryChart title="土壌水分" unit="%" dataKey="soilMoisture" color="#10b981" data={history} />
+            )}
           </div>
         )}
       </div>

@@ -1,8 +1,9 @@
-# Raspberry Pi Pico W + DHT22 → Firestore（ダッシュボードの environmental_data）
+# Raspberry Pi Pico W + DHT22（+ 土壌水分センサー）→ Firestore（ダッシュボードの environmental_data）
 #
 # Pico に main.py として保存すると電源投入時に自動実行される。
-# Wi-Fi やセンサーアカウントのパスワードは同じフォルダの secrets.py に書く
-# （secrets_example.py をコピーして作る。secrets.py は Git に入れない）。
+# Wi-Fi やセンサーアカウントのパスワード、送信先のハウスID、土壌水分センサーの設定は
+# 同じフォルダの secrets.py に書く（secrets_example.py をコピーして作る。secrets.py は Git に入れない）。
+# main.py はどの Pico でも同じものを使う。
 
 import gc
 import os
@@ -22,7 +23,11 @@ except ImportError:
 import secrets
 
 # ===== 設定 =====
-LOCATION = "温室ハウス2"  # ダッシュボードで登録したハウスID
+# Pico ごとに違う値は secrets.py に書く（書いていなければ右の値になる）
+LOCATION = getattr(secrets, "LOCATION", "温室ハウス2")  # ダッシュボードで登録したハウスID
+SOIL_PIN = getattr(secrets, "SOIL_PIN", None)  # 土壌水分センサーの AOUT をつないだ ADC ピン（26〜28）。無ければ None
+SOIL_DRY = getattr(secrets, "SOIL_DRY", 50000)  # 空気中（乾いた状態）での値。soil_check.py で測る
+SOIL_WET = getattr(secrets, "SOIL_WET", 22000)  # 水に挿した状態での値。soil_check.py で測る
 INTERVAL = 60  # 送信間隔（秒）。DHT22 は 2 秒以上あける
 DHT_PIN = 15  # DHT22 の DATA を GP15 に接続
 
@@ -39,6 +44,7 @@ SIGN_IN_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPass
 
 led = machine.Pin("LED", machine.Pin.OUT)
 sensor = dht.DHT22(machine.Pin(DHT_PIN))
+soil_adc = machine.ADC(machine.Pin(SOIL_PIN)) if SOIL_PIN is not None else None
 wlan = network.WLAN(network.STA_IF)
 
 id_token = None
@@ -104,19 +110,22 @@ def token_valid():
     return id_token is not None and time.ticks_diff(token_expires_at, time.ticks_ms()) > 0
 
 
-def send_reading(temperature, humidity):
+def send_reading(temperature, humidity, soil_moisture=None):
     """environmental_data に 1 件追加する。timestamp はサーバー時刻を使う"""
     global id_token
     doc_id = ubinascii.hexlify(os.urandom(10)).decode()
+    fields = {
+        "location": {"stringValue": LOCATION},
+        "temperature": {"doubleValue": temperature},
+        "humidity": {"doubleValue": humidity},
+    }
+    if soil_moisture is not None:
+        fields["soilMoisture"] = {"doubleValue": soil_moisture}
     body = {
         "writes": [{
             "update": {
                 "name": "{}/environmental_data/{}".format(DOCUMENTS, doc_id),
-                "fields": {
-                    "location": {"stringValue": LOCATION},
-                    "temperature": {"doubleValue": temperature},
-                    "humidity": {"doubleValue": humidity},
-                },
+                "fields": fields,
             },
             "updateTransforms": [{"fieldPath": "timestamp", "setToServerValue": "REQUEST_TIME"}],
             "currentDocument": {"exists": False},
@@ -139,19 +148,38 @@ def read_sensor():
     return round(sensor.temperature(), 1), round(sensor.humidity(), 1)
 
 
+def read_soil():
+    """土壌水分（%）。乾いた値を 0 %、水中の値を 100 % として換算する。センサーが無ければ None"""
+    if soil_adc is None:
+        return None
+    # ノイズを減らすため、少し間をあけて何回か読んだ平均を使う
+    total = 0
+    for _ in range(20):
+        total += soil_adc.read_u16()
+        time.sleep_ms(10)
+    raw = total / 20
+    percent = (SOIL_DRY - raw) * 100 / (SOIL_DRY - SOIL_WET)
+    return round(min(100, max(0, percent)), 1)
+
+
 def main():
-    log("起動  送信先:", LOCATION, " 間隔:", INTERVAL, "秒")
+    log("起動  送信先:", LOCATION, " 間隔:", INTERVAL, "秒",
+        " 土壌水分:", "GP{}".format(SOIL_PIN) if soil_adc else "なし")
     failures = 0
     while True:
         started = time.ticks_ms()
         try:
             temperature, humidity = read_sensor()
+            soil_moisture = read_soil()
             if not connect_wifi():
                 raise RuntimeError("Wi-Fi 未接続")
             if not token_valid():
                 sign_in()
-            send_reading(temperature, humidity)
-            log("送信: {} °C  {} %".format(temperature, humidity))
+            send_reading(temperature, humidity, soil_moisture)
+            if soil_moisture is None:
+                log("送信: {} °C  {} %".format(temperature, humidity))
+            else:
+                log("送信: {} °C  {} %  土壌水分 {} %".format(temperature, humidity, soil_moisture))
             failures = 0
             led.on()
             time.sleep_ms(200)
