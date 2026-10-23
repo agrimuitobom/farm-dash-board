@@ -355,7 +355,8 @@ export const updateHouseCrops = async (houseId, crops) => {
       ...crop,
       startDate: crop.startDate ? Timestamp.fromDate(new Date(crop.startDate)) : null,
       endDate: crop.endDate ? Timestamp.fromDate(new Date(crop.endDate)) : null,
-      updatedAt: getServerTimestamp()
+      // serverTimestamp() は配列の中では使えないので、端末の現在時刻を入れる
+      updatedAt: Timestamp.now()
     }));
     
     // ハウスドキュメントを更新
@@ -931,18 +932,21 @@ export const getCropHistory = async (houseId) => {
   }
   
   try {
+    // houseId と endDate の複合インデックスが要らないよう、並べ替えは取得後に行う
     const historyQuery = query(
       collection(db, 'crop_history'),
-      where('houseId', '==', houseId),
-      orderBy('endDate', 'desc')
+      where('houseId', '==', houseId)
     );
     
     const querySnapshot = await getDocs(historyQuery);
     
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...formatFirestoreData(doc.data())
-    }));
+    const endTime = (item) => convertTimestampToDate(item.endDate)?.getTime() || 0;
+    return querySnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...formatFirestoreData(doc.data())
+      }))
+      .sort((a, b) => endTime(b) - endTime(a)); // 終了日の新しい順
   } catch (error) {
     console.error(`ハウス ${houseId} の作物履歴取得中にエラーが発生しました:`, error);
     throw error;
