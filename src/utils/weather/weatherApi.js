@@ -145,6 +145,87 @@ export const getRecentHourlyWeather = async (hours = 24) => {
   }
 };
 
+// 今日から5日後までの日ごとの予報
+export const FORECAST_DAYS = 6;
+// 予報の再取得間隔（予報は1日に数回しか更新されないので1時間ごとで十分）
+export const FORECAST_REFRESH_MS = 60 * 60 * 1000;
+// 最低気温がこの値以下の日に「低温注意」を付ける（ハウスの保温の目安）
+export const LOW_TEMP_WARNING = 5;
+// 降水確率がこの値以上の日に「雨」を強調する
+export const RAIN_PROBABILITY_WARNING = 60;
+
+const DAILY_URL =
+  'https://api.open-meteo.com/v1/forecast' +
+  `?latitude=${SAIJO_LAT}&longitude=${SAIJO_LON}` +
+  '&daily=weather_code,temperature_2m_max,temperature_2m_min,' +
+  'precipitation_probability_max,precipitation_sum,wind_speed_10m_max' +
+  `&forecast_days=${FORECAST_DAYS}&wind_speed_unit=ms&timezone=Asia%2FTokyo`;
+
+/**
+ * Open-Meteo の日ごとの予報を画面で使う形に変換する
+ * @param {Object} data Open-Meteo /v1/forecast（daily）の応答
+ * @returns {Array<{date: Date, code: number, description: string, max: number, min: number,
+ *   precipitationProbability: number|null, precipitation: number|null, windMax: number|null,
+ *   lowTemp: boolean, rainy: boolean}>} 日付の古い順
+ */
+export const parseDailyForecast = (data) => {
+  const daily = data.daily || {};
+  const time = daily.time || [];
+  const valueAt = (key, i) => (typeof daily[key]?.[i] === 'number' ? daily[key][i] : null);
+  return time.map((day, i) => {
+    // "2026-10-23" は日本時間の日付なので、ローカル時刻の 0 時として作る
+    const [y, m, d] = day.split('-').map(Number);
+    const code = valueAt('weather_code', i);
+    const min = valueAt('temperature_2m_min', i);
+    const precipitationProbability = valueAt('precipitation_probability_max', i);
+    return {
+      date: new Date(y, m - 1, d),
+      code,
+      description: WEATHER_DESCRIPTIONS[code] || '不明',
+      max: valueAt('temperature_2m_max', i),
+      min,
+      precipitationProbability,
+      precipitation: valueAt('precipitation_sum', i),
+      windMax: valueAt('wind_speed_10m_max', i),
+      lowTemp: min !== null && min <= LOW_TEMP_WARNING,
+      rainy: precipitationProbability !== null && precipitationProbability >= RAIN_PROBABILITY_WARNING
+    };
+  });
+};
+
+/**
+ * 西条市の今日から5日後までの日ごとの予報を取得する
+ * @returns {Promise<Array|null>} 日付の古い順の配列。取得できなければ null
+ */
+export const getDailyForecast = async () => {
+  try {
+    const response = await fetch(DAILY_URL);
+    if (!response.ok) {
+      console.warn(`Open-Meteo の呼び出しに失敗しました: ${response.status}`);
+      return null;
+    }
+    return parseDailyForecast(await response.json());
+  } catch (error) {
+    console.error('天気予報の取得に失敗しました:', error);
+    return null;
+  }
+};
+
+/**
+ * 予報の日付の表示名（今日・明日・それ以降は「10/25(土)」）
+ * @param {Date} date 予報の日付（0 時）
+ * @param {Date} now 現在時刻
+ * @returns {string}
+ */
+export const getForecastDayLabel = (date, now = new Date()) => {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((date - today) / (24 * 60 * 60 * 1000));
+  if (diff === 0) return '今日';
+  if (diff === 1) return '明日';
+  const weekday = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+  return `${date.getMonth() + 1}/${date.getDate()}(${weekday})`;
+};
+
 /**
  * 風向きを方角（16方位）に変換
  * @param {number} degrees 風向き（度）

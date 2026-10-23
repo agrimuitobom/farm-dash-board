@@ -8,6 +8,7 @@ Raspberry Pi 5 + 7インチ DSI ディスプレイ（Waveshare 7-DSI-TOUCH-C）�
 - 表示用アカウント `display@farm-dashboard.local` でログインしたままにする（読み取り専用）
 - `?kiosk=1` 付きで開くので、60分ごとと、ネットワーク復帰時にページを自動で再読み込みする
 - 外気欄は、外気センサー（location が `outdoor`）のデータが24時間以内にあればその値、無ければ Open-Meteo の西条市の気温・湿度・天気を表示する
+- 外気欄の下に、Open-Meteo の西条市の天気予報（今日から5日後まで。最高/最低気温と降水確率）を表示する。1時間ごとに取り直す
 
 `/boot/firmware/config.txt` の次の行は変更しないこと（`,dsi0` が無いとバックライトが点かない）。
 
