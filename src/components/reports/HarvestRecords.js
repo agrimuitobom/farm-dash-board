@@ -45,7 +45,7 @@ const HarvestRecords = ({ houses, crops, startDate, endDate, onChanged }) => {
   // 作物名の候補（作物マスタと、各ハウスの現在の作物）
   const cropSuggestions = [...new Set([
     ...crops.map(crop => crop.name),
-    ...houses.map(house => house.currentCrop)
+    ...houses.flatMap(house => (house.currentCrop || '').split('・'))
   ].filter(Boolean))];
 
   const handleChange = (e) => {
@@ -54,7 +54,8 @@ const HarvestRecords = ({ houses, crops, startDate, endDate, onChanged }) => {
       const next = { ...prev, [name]: value };
       // ハウスを選んだら、そのハウスの今の作物を入れておく
       if (name === 'houseId' && !prev.cropName) {
-        next.cropName = houses.find(house => house.id === value)?.currentCrop || '';
+        // 作物が複数あるハウスは最初の作物を入れる
+        next.cropName = (houses.find(house => house.id === value)?.currentCrop || '').split('・')[0];
       }
       return next;
     });

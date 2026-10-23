@@ -65,6 +65,8 @@ const validateHouseId = (houseId) => {
  */
 const HouseFormModal = ({ isOpen, onClose, house = null, onSaved, onDeleted }) => {
   const isEdit = Boolean(house);
+  // 栽培作物が登録されているハウスは、作物名と定植日をそこから自動で決める
+  const cropsManaged = Array.isArray(house?.crops) && house.crops.length > 0;
   const [formData, setFormData] = useState(toFormValues(house));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -213,9 +215,15 @@ const HouseFormModal = ({ isOpen, onClose, house = null, onSaved, onDeleted }) =
                 name="currentCrop"
                 value={formData.currentCrop}
                 onChange={handleInputChange}
-                className={inputClass}
+                className={`${inputClass} ${cropsManaged ? 'bg-gray-100 text-gray-600' : ''}`}
                 placeholder="例: ミニトマト"
+                readOnly={cropsManaged}
               />
+              {cropsManaged && (
+                <p className="mt-1 text-xs text-gray-500">
+                  作物と定植日は、ハウス詳細の「栽培作物」に登録した内容から自動で設定されます
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -242,7 +250,8 @@ const HouseFormModal = ({ isOpen, onClose, house = null, onSaved, onDeleted }) =
                   name="plantDate"
                   value={formData.plantDate}
                   onChange={handleInputChange}
-                  className={inputClass}
+                  className={`${inputClass} ${cropsManaged ? 'bg-gray-100 text-gray-600' : ''}`}
+                  readOnly={cropsManaged}
                 />
               </div>
             </div>

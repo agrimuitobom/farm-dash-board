@@ -41,6 +41,25 @@ import {
   getCropHistory,
   moveCropToHistory
 } from '../firestoreUtils';
+import { toDateValue } from '../utils/houseCrops';
+
+// 作物の日付は、保存先では Firestore の Timestamp、入力欄では "yyyy-MM-dd" の文字列になる
+// 日付入力欄（type="date"）に入れる "yyyy-MM-dd"
+const toDateInputValue = (value) => {
+  const date = toDateValue(value);
+  if (!date) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const formatDay = (value) => toDateValue(value)?.toLocaleDateString('ja-JP') || '未設定';
+
+// Firestore から読んだ作物の日付を入力欄と同じ形にそろえる
+const normalizeCrop = (crop) => ({
+  ...crop,
+  startDate: toDateInputValue(crop.startDate),
+  endDate: toDateInputValue(crop.endDate)
+});
 
 // 作物登録用のモーダル
 const CropRegistrationModal = ({ isOpen, onClose, onSave, initialData = {} }) => {
@@ -232,7 +251,7 @@ const CropHistorySection = ({ houseId }) => {
               {item.variety && <p className="text-gray-600 text-sm">品種: {item.variety}</p>}
             </div>
             <div className="text-sm text-gray-500">
-              {new Date(item.startDate).toLocaleDateString()} ころ 〜 {new Date(item.endDate).toLocaleDateString()}
+              {formatDay(item.startDate)} 〜 {formatDay(item.endDate)}
             </div>
           </div>
           
@@ -299,12 +318,12 @@ const CropCard = ({ crop, onEdit, onDelete, onComplete }) => {
       <div className="mt-3 space-y-1 text-sm">
         <div className="flex justify-between">
           <span className="text-gray-500">栽培開始日:</span>
-          <span>{new Date(crop.startDate).toLocaleDateString()}</span>
+          <span>{formatDay(crop.startDate)}</span>
         </div>
         {crop.endDate && (
           <div className="flex justify-between">
             <span className="text-gray-500">栽培終了日:</span>
-            <span>{new Date(crop.endDate).toLocaleDateString()}</span>
+            <span>{formatDay(crop.endDate)}</span>
           </div>
         )}
       </div>
@@ -444,7 +463,7 @@ const HouseDetail = () => {
             
             // 作物データを設定
             if (houseData.crops && Array.isArray(houseData.crops)) {
-              setCrops(houseData.crops);
+              setCrops(houseData.crops.map(normalizeCrop));
             }
           } else {
             setError('温室が見つかりませんでした');
@@ -819,7 +838,7 @@ const HouseDetail = () => {
               <p className="text-gray-500 text-sm">定植日</p>
               <p className="font-medium">
                 {house.plantDate instanceof Date
-                  ? house.plantDate.toLocaleDateString()
+                  ? house.plantDate.toLocaleDateString('ja-JP')
                   : '--'
                 }
               </p>
