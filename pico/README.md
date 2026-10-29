@@ -7,7 +7,7 @@ Raspberry Pi Pico W から校内 Wi-Fi 経由で Firestore の `environmental_da
 | Pico | `LOCATION` | センサー |
 |---|---|---|
 | 1台目 | `温室ハウス2` | DHT22 |
-| 2台目 | `温室ハウス3` | DHT22 + 土壌水分センサー |
+| 2台目 | `温室ハウス3` | DHT22 + 土壌水分センサー + 丸型タッチディスプレイ |
 
 土壌水分センサーがあるハウスは、ハウスカードと7インチ画面に「土 ○○%」が表示される。
 
@@ -34,6 +34,26 @@ Raspberry Pi Pico W から校内 Wi-Fi 経由で Firestore の `environmental_da
 - Pico は土のそばに置き、センサーの線は延ばさない。Pico には USB 電源（5 V）をつなぐ
 - センサーは線の印（白い線）より上を土に入れない。上の電子部品の部分は防湿剤（ハヤコートなど）で保護するとよい。DHT22 の白い格子の部分には塗らない
 
+### 丸型タッチディスプレイ（温室ハウス3。つなぐ Pico だけ）
+
+Waveshare 1.28インチ円形タッチディスプレイ（GC9A01 + CST816S）。ケーブルの色は製品によって違うので、
+基板の印字（ラベル）で合わせる。MISO は使わない。
+
+| ディスプレイ | Pico W |
+|---|---|
+| VCC | 3V3(OUT)（36番ピン。DHT22・土壌水分センサーと共用） |
+| GND | GND（18番ピン） |
+| MOSI | GP11（15番ピン） |
+| SCLK | GP10（14番ピン） |
+| LCD_CS | GP9（12番ピン） |
+| LCD_DC | GP8（11番ピン） |
+| LCD_RST | GP12（16番ピン） |
+| LCD_BL | GP13（17番ピン） |
+| TP_SDA | GP6（9番ピン） |
+| TP_SCL | GP7（10番ピン） |
+| TP_INT | GP14（19番ピン） |
+| TP_RST | GP16（21番ピン） |
+
 ## 初回だけの準備（Firebase 側）
 
 1. **センサー用アカウントを作る**：Firebase コンソール →「Authentication」→「ユーザーを追加」で
@@ -58,6 +78,41 @@ Pico が盗まれてパスワードが漏れても、ほかのデータは読み
 
 `main.py` という名前で保存しているので、ハウスに設置した後は USB 電源をつなぐだけで自動的に送信を始める。
 
+## 丸型タッチディスプレイを使う（温室ハウス3）
+
+温度 → 湿度 → 土壌水分 → 天気予報（西条市・3日分）の画面を、左右のスワイプ（またはタップ）で切り替える。
+画面の値は10秒ごとに測り直し、ダッシュボードへの送信はこれまでどおり60秒ごと。天気予報は1時間ごとに取り直す。
+
+1. **ファイルを Pico に入れる**：このリポジトリをラズパイに置き（`git clone https://github.com/agrimuitobom/farm-dash-board.git`）、
+   Thonny の「表示」→「ファイル」で上の欄（パソコン側）の `farm-dash-board/pico` を開く。
+   次のファイルとフォルダを右クリック →「/ にアップロード」で Pico に入れる
+   - `main.py`、`display.py`、`gc9a01.py`、`cst816s.py`
+   - `fonts` フォルダ（中に `small.bin`・`medium.bin`・`large.bin`）
+2. **動作確認**：Thonny で `display_test.py` を開いて実行する
+   - 上から赤・緑・青の帯が出れば OK（赤と青が逆なら `secrets.py` に `DISPLAY_BGR = False`、
+     色が反転していたら `DISPLAY_INVERT = False`）
+   - スワイプすると画面とシェルに操作の種類が出る（左にスワイプして RIGHT と出るなら `DISPLAY_REVERSE_SWIPE = True`）
+3. **`secrets.py` に `DISPLAY = True` を書いて** Pico に保存し直し、Ctrl + D で再起動する
+
+`secrets.py` で変えられる設定（書かなければ右の値）
+
+| 設定 | 既定 | 内容 |
+|---|---|---|
+| `DISPLAY` | `False` | ディスプレイを使うか |
+| `DISPLAY_BRIGHTNESS` | `80` | 明るさ（0〜100） |
+| `TEMP_RANGE` | `(18, 30)` | 温度の正常範囲。外れると「高温」「低温」 |
+| `HUM_RANGE` | `(50, 80)` | 湿度の正常範囲。外れると「多湿」「乾燥」 |
+| `DISPLAY_REVERSE_SWIPE` | `False` | スワイプの向きを逆にする |
+| `DISPLAY_BGR` / `DISPLAY_INVERT` | `True` | 色の並び・反転（手順2で合わなければ変える） |
+
+画面の下の「送信OK」はダッシュボードへの送信に成功したこと、「通信なし」は失敗したことを表す。
+ディスプレイが動かなくても、データの送信は続く（シェルに `ディスプレイを使わずに続けます` と出る）。
+
+画面の日本語は `fonts/*.bin` に入っている文字だけ出せる（無い文字は「?」になる）。文字を足すときは
+`tools/make_fonts.py` の `JA_CHARS` に足し、パソコンで
+`python3 pico/tools/make_fonts.py <NotoSansJP-Medium.ttf> <NotoSansJP-Bold.ttf>` を実行して `fonts` を作り直す。
+フォントは Noto Sans JP（SIL Open Font License 1.1、[Google Fonts](https://fonts.google.com/noto/specimen/Noto+Sans+JP)）。
+
 ## 土壌水分センサーの校正（最初に1回）
 
 センサーは個体ごとに値が違うので、「乾いた状態 = 0 %」「水中 = 100 %」になるよう値を測って `secrets.py` に書く。
@@ -80,5 +135,8 @@ Pico が盗まれてパスワードが漏れても、ほかのデータは読み
 | `[Errno 110] ETIMEDOUT` など | 校内ネットワークで外部への通信が止められている可能性 |
 | 土壌水分を付けると `送信拒否(403)` | Firestore のルールが古い（土壌水分の項目を許可する前のもの）。`firestore.rules` を貼り直して「公開」 |
 | 土壌水分がいつも 0 % か 100 % | AOUT の配線（GP26）か、`SOIL_DRY`・`SOIL_WET` の値を確認 |
+| `ディスプレイを使わずに続けます: ... fonts/small.bin` | `fonts` フォルダを Pico に入れていない |
+| 画面が真っ暗 | LCD_BL（GP13）・VCC・GND の配線、`DISPLAY = True` を確認 |
+| `タッチパネルが見つかりません` | TP_SDA・TP_SCL・TP_RST の配線を確認（表示はそのまま使える） |
 
 10 回続けて失敗すると Pico が自動で再起動する。
