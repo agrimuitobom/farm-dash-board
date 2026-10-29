@@ -5,6 +5,7 @@
 | `sensor.py` | DHT22 の温度・湿度を `environmental_data` に1分ごとに送る（10分間送信できなければ終了し、systemd が再起動する） |
 | `alert_monitor.py` | 全ハウスの最新データを見張り、閾値を外れたらアラートを作る（戻ったら自動解決） |
 | `farm-sensor.service` / `farm-alert-monitor.service` | 上の2つを常時動かす systemd の設定 |
+| `round-display/` | 丸型タッチディスプレイに各ハウスのデータと天気予報を出す（使い方は `round-display/README.md`） |
 
 どちらも `~/farm-sensor/` に置き、同じフォルダの `serviceAccount.json`（Firebase のサービスアカウント鍵）と
 `venv`（`pip install adafruit-circuitpython-dht firebase-admin` 済み）を使う。

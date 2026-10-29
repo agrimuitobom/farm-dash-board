@@ -1,0 +1,11 @@
+{
+  "email": "display@farm-dashboard.local",
+  "password": "表示用アカウントのパスワード",
+  "houses": [],
+  "brightness": 80,
+  "reverse_swipe": false,
+  "bgr": true,
+  "invert": true,
+  "refresh_seconds": 60,
+  "pins": {"dc": 25, "rst": 27, "bl": 18, "tp_int": 22, "tp_rst": 17}
+}
