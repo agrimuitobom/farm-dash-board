@@ -37,3 +37,5 @@ pico/secrets.py
 # Python
 __pycache__/
 raspberry-pi/serviceAccount.json
+raspberry-pi/round-display/config.json
+raspberry-pi/round-display/preview.png
