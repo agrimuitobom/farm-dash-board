@@ -16,3 +16,6 @@ LOCATION = "温室ハウス3"
 SOIL_PIN = 26  # AOUT をつないだピン（GP26 = 31番ピン）
 SOIL_DRY = 50000  # 空気中での値（soil_check.py で測って書き換える）
 SOIL_WET = 22000  # 水に挿したときの値（soil_check.py で測って書き換える）
+
+# 丸型タッチディスプレイ（つないでいない Pico では False のまま）
+DISPLAY = False

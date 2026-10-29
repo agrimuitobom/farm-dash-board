@@ -1,4 +1,5 @@
 # Raspberry Pi Pico W + DHT22（+ 土壌水分センサー）→ Firestore（ダッシュボードの environmental_data）
+# 丸型タッチディスプレイをつないだ Pico は、計測値と天気予報も画面に出す（secrets.py の DISPLAY）。
 #
 # Pico に main.py として保存すると電源投入時に自動実行される。
 # Wi-Fi やセンサーアカウントのパスワード、送信先のハウスID、土壌水分センサーの設定は
@@ -28,8 +29,13 @@ LOCATION = getattr(secrets, "LOCATION", "温室ハウス2")  # ダッシュボ�
 SOIL_PIN = getattr(secrets, "SOIL_PIN", None)  # 土壌水分センサーの AOUT をつないだ ADC ピン（26〜28）。無ければ None
 SOIL_DRY = getattr(secrets, "SOIL_DRY", 50000)  # 空気中（乾いた状態）での値。soil_check.py で測る
 SOIL_WET = getattr(secrets, "SOIL_WET", 22000)  # 水に挿した状態での値。soil_check.py で測る
+# 丸型タッチディスプレイ（Waveshare 1.28インチ）をつないでいれば True。配線は display.py
+DISPLAY = getattr(secrets, "DISPLAY", False)
 INTERVAL = 60  # 送信間隔（秒）。DHT22 は 2 秒以上あける
 DHT_PIN = 15  # DHT22 の DATA を GP15 に接続
+DISPLAY_READ_INTERVAL = 10  # ディスプレイの値を測り直す間隔（秒）
+FORECAST_INTERVAL = 60 * 60  # 天気予報を取り直す間隔（秒）
+FORECAST_RETRY = 10 * 60  # 天気予報を取れなかったときに取り直すまで（秒）
 
 # Firebase の Web 用 API キーとプロジェクトID（ダッシュボードの src/firebase.js と同じ公開値）
 API_KEY = "AIzaSyAHduV83j0eSdJQIvUGRqmmyN6sH0b4L0k"
@@ -162,40 +168,124 @@ def read_soil():
     return round(min(100, max(0, percent)), 1)
 
 
+def take_reading():
+    """(温度, 湿度, 土壌水分) を測る。土壌水分センサーが無ければ土壌水分は None"""
+    temperature, humidity = read_sensor()
+    return temperature, humidity, read_soil()
+
+
+def start_display():
+    """ディスプレイを使う設定なら準備する。使わない・動かないときは None"""
+    if not DISPLAY:
+        return None, None
+    try:
+        import display
+        ui = display.Display(
+            LOCATION, soil_adc is not None,
+            temp_range=getattr(secrets, "TEMP_RANGE", (18, 30)),
+            hum_range=getattr(secrets, "HUM_RANGE", (50, 80)),
+            brightness=getattr(secrets, "DISPLAY_BRIGHTNESS", 80),
+            reverse_swipe=getattr(secrets, "DISPLAY_REVERSE_SWIPE", False),
+            bgr=getattr(secrets, "DISPLAY_BGR", True),
+            invert=getattr(secrets, "DISPLAY_INVERT", True),
+            log=log,
+        )
+        log("ディスプレイ OK")
+        return ui, display
+    except Exception as e:
+        # 画面が動かなくても、データの送信は続ける
+        log("ディスプレイを使わずに続けます:", e)
+        return None, None
+
+
+def due(deadline, now):
+    return time.ticks_diff(now, deadline) >= 0
+
+
 def main():
     log("起動  送信先:", LOCATION, " 間隔:", INTERVAL, "秒",
         " 土壌水分:", "GP{}".format(SOIL_PIN) if soil_adc else "なし")
+    ui, display = start_display()
     failures = 0
+    now = time.ticks_ms()
+    next_send = next_read = next_forecast = now
+    latest = None  # 画面用に測った最新の値
+    latest_at = now
+
     while True:
-        started = time.ticks_ms()
-        try:
-            temperature, humidity = read_sensor()
-            soil_moisture = read_soil()
-            if not connect_wifi():
-                raise RuntimeError("Wi-Fi 未接続")
-            if not token_valid():
-                sign_in()
-            send_reading(temperature, humidity, soil_moisture)
-            if soil_moisture is None:
-                log("送信: {} °C  {} %".format(temperature, humidity))
-            else:
-                log("送信: {} °C  {} %  土壌水分 {} %".format(temperature, humidity, soil_moisture))
-            failures = 0
-            led.on()
-            time.sleep_ms(200)
-            led.off()
-        except Exception as e:
-            # DHT22 の読み取り失敗、通信エラー、ログイン・送信の失敗など
-            failures += 1
-            log("エラー({}回目):".format(failures), e)
+        now = time.ticks_ms()
 
-        if failures >= MAX_FAILURES:
-            log("失敗が続いたため再起動します")
-            time.sleep(5)
-            machine.reset()
+        # 画面の値は送信より短い間隔で測り直す
+        if ui and due(next_read, now):
+            next_read = time.ticks_add(now, DISPLAY_READ_INTERVAL * 1000)
+            try:
+                latest = take_reading()
+                latest_at = now
+                ui.set_reading(*latest)
+            except Exception as e:
+                latest = None
+                ui.set_sensor_error()
+                log("測定エラー:", e)
 
-        elapsed = time.ticks_diff(time.ticks_ms(), started) // 1000
-        time.sleep(max(2, INTERVAL - elapsed))
+        if due(next_send, now):
+            next_send = time.ticks_add(now, INTERVAL * 1000)
+            try:
+                # 画面用に測ったばかりの値があればそれを送る（DHT22 を続けて読まないため）
+                if latest and time.ticks_diff(now, latest_at) < DISPLAY_READ_INTERVAL * 2000:
+                    temperature, humidity, soil_moisture = latest
+                else:
+                    temperature, humidity, soil_moisture = take_reading()
+                if not connect_wifi():
+                    raise RuntimeError("Wi-Fi 未接続")
+                if not token_valid():
+                    sign_in()
+                send_reading(temperature, humidity, soil_moisture)
+                if soil_moisture is None:
+                    log("送信: {} °C  {} %".format(temperature, humidity))
+                else:
+                    log("送信: {} °C  {} %  土壌水分 {} %".format(temperature, humidity, soil_moisture))
+                failures = 0
+                if ui:
+                    ui.set_sent(True)
+                led.on()
+                time.sleep_ms(200)
+                led.off()
+            except Exception as e:
+                # DHT22 の読み取り失敗、通信エラー、ログイン・送信の失敗など
+                failures += 1
+                log("エラー({}回目):".format(failures), e)
+                if ui:
+                    ui.set_sent(False)
+
+            if failures >= MAX_FAILURES:
+                log("失敗が続いたため再起動します")
+                time.sleep(5)
+                machine.reset()
+
+        if ui and due(next_forecast, now):
+            try:
+                if not connect_wifi():
+                    raise RuntimeError("Wi-Fi 未接続")
+                gc.collect()
+                ui.set_forecast(display.fetch_forecast(requests))
+                next_forecast = time.ticks_add(now, FORECAST_INTERVAL * 1000)
+                log("天気予報を更新")
+            except Exception as e:
+                next_forecast = time.ticks_add(now, FORECAST_RETRY * 1000)
+                log("天気予報の取得に失敗:", e)
+
+        if ui:
+            # タッチに素早く反応するよう、短い間隔で画面を見る
+            try:
+                ui.poll()
+            except Exception as e:
+                # 描けない状態が続くとログがあふれるので、画面は止めて送信だけ続ける
+                log("画面の更新に失敗したため、ディスプレイを止めます:", e)
+                ui = None
+            time.sleep_ms(30)
+        else:
+            # DHT22 は 2 秒以上あける
+            time.sleep_ms(max(2000, time.ticks_diff(next_send, time.ticks_ms())))
 
 
 main()
