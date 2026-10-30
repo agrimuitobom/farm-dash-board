@@ -33,6 +33,9 @@ SOIL_WET = getattr(secrets, "SOIL_WET", 22000)  # 水に挿した状態での値
 DISPLAY = getattr(secrets, "DISPLAY", False)
 INTERVAL = 60  # 送信間隔（秒）。DHT22 は 2 秒以上あける
 DHT_PIN = 15  # DHT22 の DATA を GP15 に接続
+# 土壌水分センサーがつながっていないとみなす値（校正した範囲 SOIL_DRY〜SOIL_WET の幅に対する割合）
+SOIL_MARGIN = 0.25  # 範囲の外にこれ以上はみ出したら
+SOIL_MAX_SPREAD = 0.3  # 20回測った値のぶれがこれより大きければ
 DISPLAY_READ_INTERVAL = 10  # ディスプレイの値を測り直す間隔（秒）
 FORECAST_INTERVAL = 60 * 60  # 天気予報を取り直す間隔（秒）
 FORECAST_RETRY = 10 * 60  # 天気予報を取れなかったときに取り直すまで（秒）
@@ -54,6 +57,7 @@ soil_adc = machine.ADC(machine.Pin(SOIL_PIN)) if SOIL_PIN is not None else None
 wlan = network.WLAN(network.STA_IF)
 
 id_token = None
+soil_warned = False  # 土壌水分センサーの異常を一度ログに出したか
 token_expires_at = 0  # time.ticks_ms() 基準
 
 
@@ -155,16 +159,31 @@ def read_sensor():
 
 
 def read_soil():
-    """土壌水分（%）。乾いた値を 0 %、水中の値を 100 % として換算する。センサーが無ければ None"""
+    """土壌水分（%）。乾いた値を 0 %、水中の値を 100 % として換算する。
+    センサーが無い（SOIL_PIN = None）か、つながっていないと判断したときは None（土壌水分は送らない）"""
+    global soil_warned
     if soil_adc is None:
         return None
     # ノイズを減らすため、少し間をあけて何回か読んだ平均を使う
-    total = 0
+    values = []
     for _ in range(20):
-        total += soil_adc.read_u16()
+        values.append(soil_adc.read_u16())
         time.sleep_ms(10)
-    raw = total / 20
-    percent = (SOIL_DRY - raw) * 100 / (SOIL_DRY - SOIL_WET)
+    raw = sum(values) / len(values)
+    span = SOIL_DRY - SOIL_WET
+    # つながっていないピンの値はでたらめなので、校正した範囲から大きく外れるか、
+    # 測るたびに大きくぶれるときは「センサーなし」とみなす
+    spread = max(values) - min(values)
+    if raw > SOIL_DRY + span * SOIL_MARGIN or raw < SOIL_WET - span * SOIL_MARGIN or spread > span * SOIL_MAX_SPREAD:
+        if not soil_warned:
+            log("土壌水分センサーの値がおかしいため、土壌水分は送りません（値 {:.0f}、ぶれ {}）。"
+                "つないでいなければ secrets.py を SOIL_PIN = None に".format(raw, spread))
+            soil_warned = True
+        return None
+    if soil_warned:
+        log("土壌水分センサーの値が戻りました")
+        soil_warned = False
+    percent = (SOIL_DRY - raw) * 100 / span
     return round(min(100, max(0, percent)), 1)
 
 
