@@ -19,7 +19,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 LOCATION = "温室ハウス1"  # ハウスID（外気なら "outdoor"）
-INTERVAL = 60  # 送信間隔（秒）
+INTERVAL = 120  # 送信間隔（秒）。Firestore の読み取りを抑えるため2分ごと
 WATCHDOG_TIMEOUT = 10 * 60  # この秒数1回も送信できなければ終了する
 
 SERVICE_ACCOUNT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "serviceAccount.json")
