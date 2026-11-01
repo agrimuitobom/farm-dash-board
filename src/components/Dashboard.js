@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Thermometer, 
@@ -37,8 +37,8 @@ const formatValue = (value, digits) =>
 const OUTDOOR_SENSOR_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Open-Meteo の再取得間隔（WeatherWidget と同じ）
 const WEATHER_REFRESH_MS = 10 * 60 * 1000;
-// 推移グラフの再取得間隔
-const CHART_REFRESH_MS = 5 * 60 * 1000;
+// 推移グラフに出す期間
+const CHART_HOURS = 24;
 
 const isRecentOutdoorSensor = (data) =>
   data?.timestamp instanceof Date && Date.now() - data.timestamp.getTime() < OUTDOOR_SENSOR_MAX_AGE_MS;
@@ -69,6 +69,28 @@ const toOutdoorDisplay = (sensorData, weather) => {
 
 // グラフに描く点の最大数（データ間隔に関わらずこの数程度に間引く）
 const MAX_CHART_POINTS = 12;
+
+// 推移グラフ用に1件分のデータを取り出す
+const toChartRecord = (d) => ({
+  id: d.id,
+  timestamp: d.timestamp,
+  temperature: d.temperature,
+  humidity: d.humidity,
+  soilMoisture: d.soilMoisture
+});
+
+// 古い順の記録を MAX_CHART_POINTS 点程度に間引く（最新の記録は必ず残す）
+const sampleChartRecords = (records) => {
+  const step = Math.max(1, Math.ceil(records.length / MAX_CHART_POINTS));
+  return records
+    .filter((_, i) => (records.length - 1 - i) % step === 0)
+    .map(d => ({
+      name: d.timestamp.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+      温度: d.temperature,
+      湿度: d.humidity,
+      土壌水分: d.soilMoisture
+    }));
+};
 
 const Dashboard = () => {
   // 環境データの状態
@@ -136,7 +158,8 @@ const Dashboard = () => {
   
   // 状態の初期化
   const [houses, setHouses] = useState([]);
-  const [chartData, setChartData] = useState([]);
+  // 推移グラフの元データ（古い順）。どのハウスの記録かも持っておき、切り替え直後に混ざらないようにする
+  const [chartHistory, setChartHistory] = useState({ location: null, records: [] });
   const [tasks, setTasks] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -232,43 +255,56 @@ const Dashboard = () => {
     }
   }, [houses, chartLocation, isUsingDummyData]);
 
-  // 選んだハウスの過去24時間の推移（5分ごとに再取得）
+  // 選んだハウスの過去24時間の推移。読み込むのはハウスを選んだときの1回だけ。
+  // その後は、ハウスカード用にリアルタイムで受け取っている最新値をグラフに付け足す
+  // （定期的に24時間分を読み直すと、開いている間 Firestore の読み取りがとても多くなるため）
   useEffect(() => {
     if (!chartLocation) return undefined;
     let cancelled = false;
 
     const loadHistory = async () => {
       try {
-        const envHistory = await getEnvironmentalHistory(chartLocation, 24);
-        // 新しい順で返ってくるので古い順に並べ替え、送信間隔に関わらず
-        // MAX_CHART_POINTS 点程度に間引く
-        const ordered = envHistory
+        const envHistory = await getEnvironmentalHistory(chartLocation, CHART_HOURS);
+        // 新しい順で返ってくるので古い順に並べ替える
+        const records = envHistory
           .map(formatFirestoreData)
           .filter(d => d.timestamp instanceof Date)
-          .reverse();
-        const step = Math.max(1, Math.ceil(ordered.length / MAX_CHART_POINTS));
-        const sampledData = ordered
-          .filter((_, i) => i % step === 0)
-          .map(d => ({
-            name: d.timestamp.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
-            温度: d.temperature,
-            湿度: d.humidity,
-            土壌水分: d.soilMoisture
-          }));
-        if (!cancelled) setChartData(sampledData);
+          .reverse()
+          .map(toChartRecord);
+        if (!cancelled) setChartHistory({ location: chartLocation, records });
       } catch (err) {
         console.error('環境データ履歴取得エラー:', err);
-        if (!cancelled) setChartData([]);
+        if (!cancelled) setChartHistory({ location: chartLocation, records: [] });
       }
     };
 
     loadHistory();
-    const timer = setInterval(loadHistory, CHART_REFRESH_MS);
     return () => {
       cancelled = true;
-      clearInterval(timer);
     };
   }, [chartLocation]);
+
+  // 新しく届いた最新値をグラフに付け足し、24時間より古い記録は外す
+  const latestForChart = chartLocation ? housesEnvironmentalData[chartLocation] : null;
+  useEffect(() => {
+    if (!(latestForChart?.timestamp instanceof Date)) return;
+    setChartHistory(prev => {
+      if (prev.location !== chartLocation) return prev; // 履歴の読み込みが終わってから付け足す
+      const last = prev.records[prev.records.length - 1];
+      if (last && (last.id === latestForChart.id || last.timestamp >= latestForChart.timestamp)) {
+        return prev;
+      }
+      const from = latestForChart.timestamp.getTime() - CHART_HOURS * 60 * 60 * 1000;
+      const records = [...prev.records, toChartRecord(latestForChart)]
+        .filter(d => d.timestamp.getTime() >= from);
+      return { location: prev.location, records };
+    });
+  }, [latestForChart, chartLocation]);
+
+  const chartData = useMemo(
+    () => (chartHistory.location === chartLocation ? sampleChartRecords(chartHistory.records) : []),
+    [chartHistory, chartLocation]
+  );
 
   return (
     <div className="fade-in">

@@ -27,7 +27,7 @@ import { isKioskMode } from '../utils/kioskMode';
 import { getCurrentWeather, getRecentHourlyWeather } from '../utils/weather/weatherApi';
 import DailyForecast from '../components/DailyForecast';
 
-// この時間データが来なければ「通信なし」とする（センサーは1分ごとに送信）
+// この時間データが来なければ「通信なし」とする（センサーは2分ごとに送信）
 const STALE_MS = 10 * 60 * 1000;
 // 外気センサー（location が outdoor）のデータがこの時間届いていなければ、センサーは置かれていないとみなし、
 // 外気欄には Open-Meteo の西条市の気象データを表示する（outdoor に送るセンサーを置けば自動で切り替わる）

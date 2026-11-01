@@ -31,7 +31,7 @@ SOIL_DRY = getattr(secrets, "SOIL_DRY", 50000)  # 空気中（乾いた状態）
 SOIL_WET = getattr(secrets, "SOIL_WET", 22000)  # 水に挿した状態での値。soil_check.py で測る
 # 丸型タッチディスプレイ（Waveshare 1.28インチ）をつないでいれば True。配線は display.py
 DISPLAY = getattr(secrets, "DISPLAY", False)
-INTERVAL = 60  # 送信間隔（秒）。DHT22 は 2 秒以上あける
+INTERVAL = 120  # 送信間隔（秒）。Firestore の読み取りを抑えるため2分ごと。DHT22 は 2 秒以上あける
 DHT_PIN = 15  # DHT22 の DATA を GP15 に接続
 # 土壌水分センサーがつながっていないとみなす値（校正した範囲 SOIL_DRY〜SOIL_WET の幅に対する割合）
 SOIL_MARGIN = 0.25  # 範囲の外にこれ以上はみ出したら

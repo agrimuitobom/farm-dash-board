@@ -18,7 +18,7 @@ const AlertThresholdOverview = ({ houses }) => {
           <p>気温・湿度が下の範囲を外れると、アラートが自動で作られます。範囲内に戻ると自動で解決済みになります。</p>
           <p>センサーから10分以上データが届かないときも「通信なし」のアラートが作られます。</p>
           <p className="text-blue-700">
-            判定は Raspberry Pi で動く見張りプログラム（raspberry-pi/alert_monitor.py）が1分ごとに行います。
+            判定は Raspberry Pi で動く見張りプログラム（raspberry-pi/alert_monitor.py）が、新しいデータが届くたびに行います。
           </p>
         </div>
       </div>
