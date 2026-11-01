@@ -26,7 +26,7 @@ import HouseFormModal from './houses/HouseFormModal';
 // Firestoreユーティリティをインポート
 import { 
   getHouseById, 
-  getEnvironmentalHistory, 
+  getEnvironmentalReadings, 
   getAlertsByHouse,
   getTasksByHouse,
   formatFirestoreData,
@@ -498,7 +498,7 @@ const HouseDetail = () => {
 
     const fetchEnvHistory = async () => {
       try {
-        const historyData = await getEnvironmentalHistory(id, timeRange);
+        const historyData = await getEnvironmentalReadings(id, timeRange);
         if (!cancelled) setEnvHistory(historyData);
       } catch (err) {
         console.error('環境データ履歴の取得に失敗しました:', err);

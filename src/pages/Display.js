@@ -20,7 +20,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import {
   subscribeToHouses,
   subscribeToEnvironmentalData,
-  getEnvironmentalHistory
+  getEnvironmentalReadings
 } from '../firestoreUtils';
 import { getHouseThresholds } from '../utils/environmentalRanges';
 import { isKioskMode } from '../utils/kioskMode';
@@ -266,7 +266,7 @@ const DetailOverlay = ({ target, onClose }) => {
     let cancelled = false;
     const loadHistory = target.source === 'weather'
       ? getRecentHourlyWeather(24)
-      : getEnvironmentalHistory(target.id, 24);
+      : getEnvironmentalReadings(target.id, 24);
     loadHistory
       .then((records) => {
         if (cancelled) return;

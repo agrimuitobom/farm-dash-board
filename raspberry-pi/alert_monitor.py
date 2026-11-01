@@ -7,12 +7,19 @@ alerts にアラートを追加する。範囲内に戻ったら自動で解決�
 Firestore の変更を購読（on_snapshot）して受け取るので、毎分すべてを読み直すことはない
 （読み取り回数は、センサーが送ったデータの件数とほぼ同じで済む）。
 
+受け取った計測値は、グラフ用の「1時間ごとのまとめ」（environmental_hourly）にも追記する
+（hourly_bundles.py）。起動したときは、止まっていた間の分を最大24時間さかのぼって追記する。
+
+  python3 alert_monitor.py                        # 見張りを始める
+  python3 alert_monitor.py --backfill-hours 168   # 1週間分のまとめを作って終わる（1回だけ）
+
 Raspberry Pi で systemd のサービスとして常時動かす（設置手順は raspberry-pi/README.md）。
 """
 import os
 
 os.environ.setdefault("GRPC_DNS_RESOLVER", "native")
 
+import argparse
 import sys
 import threading
 import time
@@ -22,10 +29,14 @@ from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud.firestore_v1.query import Query
 
+import hourly_bundles
+
 SERVICE_ACCOUNT = os.environ.get(
     "FARM_SERVICE_ACCOUNT", os.path.join(os.path.dirname(os.path.abspath(__file__)), "serviceAccount.json")
 )
 CHECK_INTERVAL = 30  # 秒。通信なしの判定などをこの間隔で行う
+# 起動したとき、1時間ごとのまとめに足りない計測値をさかのぼって追記する時間
+BACKFILL_HOURS_ON_START = 24
 
 # この時間データが来なければ「通信なし」
 STALE_AFTER = timedelta(minutes=10)
@@ -147,6 +158,7 @@ class AlertMonitor:
         # 状態が正常に戻るまでは同じアラートを出し直さない
         self.alerted = set()
         self.env_watches = {}
+        self.bundled = {}  # ハウスID -> まとめに追記した最新の environmental_data のID
 
         self.houses_watch = db.collection("houses").on_snapshot(self._on_houses)
         self.alerts_watch = (
@@ -171,10 +183,21 @@ class AlertMonitor:
                 if house_id not in houses:
                     self.env_watches.pop(house_id).unsubscribe()
                     self.latest.pop(house_id, None)
-            for house_id in houses:
-                if house_id not in self.env_watches:
-                    self.env_watches[house_id] = self._watch_latest(house_id)
+            new_houses = [house_id for house_id in houses if house_id not in self.env_watches]
+            for house_id in new_houses:
+                self.env_watches[house_id] = self._watch_latest(house_id)
         log(f"ハウス {len(houses)} 件を見張っています")
+        for house_id in new_houses:
+            threading.Thread(target=self._backfill, args=(house_id,), daemon=True).start()
+
+    def _backfill(self, house_id):
+        """止まっていた間など、まとめに入っていない計測値を追記する"""
+        try:
+            count = hourly_bundles.backfill(self.db, house_id, BACKFILL_HOURS_ON_START)
+            if count:
+                log(f"{house_id}: 1時間ごとのまとめに {count} 件を追記しました")
+        except Exception as e:
+            log(f"{house_id}: まとめの追記に失敗:", e)
 
     def _watch_latest(self, house_id):
         query = (
@@ -185,11 +208,26 @@ class AlertMonitor:
         )
 
         def on_snapshot(docs, changes, read_time):
+            if not docs:
+                return
+            data = docs[0].to_dict() or {}
             with self.lock:
-                if docs:
-                    self.latest[house_id] = docs[0].to_dict()
+                self.latest[house_id] = data
+                is_new = self.bundled.get(house_id) != docs[0].id
+                self.bundled[house_id] = docs[0].id
+            if is_new:
+                self._add_to_bundle(house_id, data)
 
         return query.on_snapshot(on_snapshot)
+
+    def _add_to_bundle(self, house_id, data):
+        point = hourly_bundles.to_point(data)
+        if point is None:
+            return  # サーバー時刻がまだ入っていない（書き込み直後）
+        try:
+            hourly_bundles.append(self.db, house_id, [point])
+        except Exception as e:  # 次の起動時の追記で埋まるので、ここでは止めない
+            log(f"{house_id}: まとめへの追記に失敗:", e)
 
     def _on_alerts(self, docs, changes, read_time):
         with self.lock:
@@ -279,7 +317,25 @@ def make_db():
     return firestore.client()
 
 
+def run_backfill(db, hours):
+    """全ハウスについて、hours 時間前からのまとめを作る（足りない分を追記する）"""
+    for doc in db.collection("houses").stream():
+        data = doc.to_dict() or {}
+        if doc.id.startswith("_") or data.get("isActive") is False:
+            continue
+        count = hourly_bundles.backfill(db, doc.id, hours, after_last=False)
+        log(f"{doc.id}: {count} 件をまとめに追記しました")
+
+
 def main():
+    parser = argparse.ArgumentParser(description="温室ハウスのアラート見張り")
+    parser.add_argument("--backfill-hours", type=int, default=0,
+                        help="この時間分の1時間ごとのまとめを作って終わる（例: 168 で1週間分）")
+    args = parser.parse_args()
+    if args.backfill_hours:
+        run_backfill(make_db(), args.backfill_hours)
+        return
+
     log("アラート見張りを開始します")
     monitor = AlertMonitor(make_db())
     try:

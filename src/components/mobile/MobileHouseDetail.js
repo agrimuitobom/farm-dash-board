@@ -23,7 +23,7 @@ import HouseFormModal from '../houses/HouseFormModal';
 
 import { 
   getHouseById, 
-  getEnvironmentalHistory, 
+  getEnvironmentalReadings, 
   getAlertsByHouse,
   subscribeToHouse,
   subscribeToEnvironmentalData,
@@ -118,7 +118,7 @@ const MobileHouseDetail = () => {
 
     const fetchEnvHistory = async () => {
       try {
-        const historyData = await getEnvironmentalHistory(id, timeRange);
+        const historyData = await getEnvironmentalReadings(id, timeRange);
         if (!cancelled) setEnvHistory(historyData);
       } catch (err) {
         console.error('環境データ履歴の取得に失敗しました:', err);

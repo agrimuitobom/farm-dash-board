@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import {
   getAllHouses,
-  getEnvironmentalHistory,
+  getEnvironmentalReadings,
   getPendingTasks,
   subscribeToUnresolvedAlerts,
   subscribeToEnvironmentalData
@@ -12,7 +12,7 @@ import {
 
 jest.mock('../firestoreUtils', () => ({
   getAllHouses: jest.fn(),
-  getEnvironmentalHistory: jest.fn(),
+  getEnvironmentalReadings: jest.fn(),
   getPendingTasks: jest.fn(),
   subscribeToUnresolvedAlerts: jest.fn(),
   subscribeToEnvironmentalData: jest.fn(),
@@ -60,7 +60,7 @@ describe('Dashboard の推移グラフ', () => {
       return () => { delete listeners[location]; };
     });
     // 新しい順で返る
-    getEnvironmentalHistory.mockResolvedValue([
+    getEnvironmentalReadings.mockResolvedValue([
       { id: 'b', timestamp: minutesAgo(2), temperature: 21 },
       { id: 'a', timestamp: minutesAgo(4), temperature: 20 }
     ]);
@@ -75,8 +75,8 @@ describe('Dashboard の推移グラフ', () => {
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await Promise.resolve(); });
 
-    expect(getEnvironmentalHistory).toHaveBeenCalledTimes(1);
-    expect(getEnvironmentalHistory).toHaveBeenCalledWith('温室ハウス1', 24);
+    expect(getEnvironmentalReadings).toHaveBeenCalledTimes(1);
+    expect(getEnvironmentalReadings).toHaveBeenCalledWith('温室ハウス1', 24);
     expect(screen.getByTestId('chart').textContent).toBe('20,21');
 
     // リスナーが最初に返す最新値（履歴の最後と同じもの）は重ねない
@@ -89,11 +89,11 @@ describe('Dashboard の推移グラフ', () => {
 
     // 時間がたっても24時間分を読み直さない
     await act(async () => { jest.advanceTimersByTime(30 * 60 * 1000); });
-    expect(getEnvironmentalHistory).toHaveBeenCalledTimes(1);
+    expect(getEnvironmentalReadings).toHaveBeenCalledTimes(1);
   });
 
   test('24時間より古い記録はグラフから外す', async () => {
-    getEnvironmentalHistory.mockResolvedValue([
+    getEnvironmentalReadings.mockResolvedValue([
       { id: 'old', timestamp: minutesAgo(24 * 60 - 1), temperature: 10 }
     ]);
     render(<MemoryRouter><Dashboard /></MemoryRouter>);

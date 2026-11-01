@@ -24,6 +24,7 @@ import {
   serverTimestamp,
   onSnapshot,
   Timestamp,
+  documentId,
   writeBatch
 } from 'firebase/firestore';
 
@@ -614,6 +615,60 @@ export const getEnvironmentalHistory = async (location, hours = 24) => {
     console.error(`環境データ履歴(${location})の取得中にエラーが発生しました:`, error);
     throw error;
   }
+};
+
+// 1時間ごとのまとめ（raspberry-pi/hourly_bundles.py が作る）のドキュメントID用の時刻（UTC の YYYYMMDDHH）
+const hourKey = (date) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}${pad(date.getUTCHours())}`;
+};
+
+/**
+ * 環境データの推移を、1時間ごとのまとめ（environmental_hourly）から読む
+ *
+ * まとめは1時間に1件なので、24時間で25件・1週間で169件の読み取りで済む
+ * （environmental_data を1件ずつ読むと、2分間隔で24時間720件・1週間5,040件）。
+ * まとめがまだ1件も無いとき（Raspberry Pi の alert_monitor.py を更新する前）は、
+ * 24時間以内なら environmental_data から読む。
+ * @param {string} location - ハウスID
+ * @param {number} hours - 何時間前からか
+ * @returns {Promise<Array>} 新しい順の計測値（getEnvironmentalHistory と同じ形）
+ */
+export const getEnvironmentalReadings = async (location, hours = 24) => {
+  if (isMockMode()) {
+    return getEnvironmentalHistory(location, hours);
+  }
+
+  const now = new Date();
+  const start = new Date(now.getTime() - hours * 60 * 60 * 1000);
+  // ドキュメントIDは「ハウスID_YYYYMMDDHH」なので、ID の範囲で取り出せる（複合インデックス不要）
+  const bundlesQuery = query(
+    collection(db, 'environmental_hourly'),
+    where(documentId(), '>=', `${location}_${hourKey(start)}`),
+    where(documentId(), '<=', `${location}_${hourKey(now)}`)
+  );
+  const snapshot = await getDocs(bundlesQuery);
+
+  if (snapshot.empty) {
+    return hours <= 24 ? getEnvironmentalHistory(location, hours) : [];
+  }
+
+  const readings = [];
+  snapshot.docs.forEach((bundle) => {
+    const data = bundle.data();
+    if (data.location !== location) return;
+    (data.readings || []).forEach((point) => {
+      const timestamp = convertTimestampToDate(point.t);
+      if (!timestamp || timestamp < start) return;
+      readings.push({
+        timestamp,
+        temperature: point.temperature,
+        humidity: point.humidity,
+        soilMoisture: point.soilMoisture
+      });
+    });
+  });
+  return readings.sort((a, b) => b.timestamp - a.timestamp);
 };
 
 /**
