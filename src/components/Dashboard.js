@@ -19,7 +19,7 @@ import HouseCard from './HouseCard';
 // Firestoreユーティリティ関数をインポート
 import { 
   getAllHouses, 
-  getEnvironmentalHistory,
+  getEnvironmentalReadings,
   getPendingTasks,
   subscribeToUnresolvedAlerts,
   formatFirestoreData,
@@ -255,7 +255,7 @@ const Dashboard = () => {
     }
   }, [houses, chartLocation, isUsingDummyData]);
 
-  // 選んだハウスの過去24時間の推移。読み込むのはハウスを選んだときの1回だけ。
+  // 選んだハウスの過去24時間の推移（1時間ごとのまとめから読むので25件程度）。読み込むのはハウスを選んだときの1回だけ。
   // その後は、ハウスカード用にリアルタイムで受け取っている最新値をグラフに付け足す
   // （定期的に24時間分を読み直すと、開いている間 Firestore の読み取りがとても多くなるため）
   useEffect(() => {
@@ -264,7 +264,7 @@ const Dashboard = () => {
 
     const loadHistory = async () => {
       try {
-        const envHistory = await getEnvironmentalHistory(chartLocation, CHART_HOURS);
+        const envHistory = await getEnvironmentalReadings(chartLocation, CHART_HOURS);
         // 新しい順で返ってくるので古い順に並べ替える
         const records = envHistory
           .map(formatFirestoreData)
