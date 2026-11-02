@@ -33,6 +33,7 @@ firebase-debug.log
 
 # Pico W のパスワード類
 pico/secrets.py
+esp32/**/secrets.h
 
 # Python
 __pycache__/

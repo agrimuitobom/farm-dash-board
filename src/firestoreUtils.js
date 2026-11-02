@@ -664,7 +664,8 @@ export const getEnvironmentalReadings = async (location, hours = 24) => {
         timestamp,
         temperature: point.temperature,
         humidity: point.humidity,
-        soilMoisture: point.soilMoisture
+        soilMoisture: point.soilMoisture,
+        co2: point.co2
       });
     });
   });

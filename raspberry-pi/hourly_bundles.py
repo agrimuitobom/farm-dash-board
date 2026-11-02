@@ -8,7 +8,7 @@
   environmental_hourly/{ハウスID}_{YYYYMMDDHH（UTC）}
     location: ハウスID
     hour:     その1時間の始まり（Timestamp）
-    readings: [{t: 計測時刻, temperature, humidity, soilMoisture}, ...]
+    readings: [{t: 計測時刻, temperature, humidity, soilMoisture, co2}, ...]（無い項目は入れない）
 
 alert_monitor.py が新しい計測値を受け取るたびに追記する（ArrayUnion なので同じ値を何度追記しても1つ）。
 """
@@ -19,7 +19,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud.firestore_v1.query import Query
 
 COLLECTION = "environmental_hourly"
-FIELDS = ("temperature", "humidity", "soilMoisture")
+FIELDS = ("temperature", "humidity", "soilMoisture", "co2")
 
 
 def hour_start(timestamp):

@@ -28,10 +28,10 @@ service cloud.firestore {
     }
 
     // センサーが送る1件分の計測データとして正しい形か
-    // location は登録済みのハウスIDに限る。土壌水分（soilMoisture, %）は付けても付けなくてもよい
+    // location は登録済みのハウスIDに限る。土壌水分（soilMoisture, %）と CO2（co2, ppm）は付けても付けなくてもよい
     function isValidSensorReading() {
       let data = request.resource.data;
-      return data.keys().hasOnly(['location', 'temperature', 'humidity', 'soilMoisture', 'timestamp']) &&
+      return data.keys().hasOnly(['location', 'temperature', 'humidity', 'soilMoisture', 'co2', 'timestamp']) &&
             data.keys().hasAll(['location', 'temperature', 'humidity', 'timestamp']) &&
             data.location is string &&
             exists(/databases/$(database)/documents/houses/$(data.location)) &&
@@ -39,6 +39,7 @@ service cloud.firestore {
             data.humidity is number && data.humidity >= 0 && data.humidity <= 100 &&
             (!('soilMoisture' in data) ||
               (data.soilMoisture is number && data.soilMoisture >= 0 && data.soilMoisture <= 100)) &&
+            (!('co2' in data) || (data.co2 is number && data.co2 >= 0 && data.co2 <= 40000)) &&
             data.timestamp == request.time;
     }
 
