@@ -23,6 +23,7 @@ import {
   getEnvironmentalReadings
 } from '../firestoreUtils';
 import { getHouseThresholds } from '../utils/environmentalRanges';
+import { calcHumidityDeficit, judgeHumidityDeficit } from '../utils/humidityDeficit';
 import { isKioskMode } from '../utils/kioskMode';
 import { getCurrentWeather, getRecentHourlyWeather } from '../utils/weather/weatherApi';
 import DailyForecast from '../components/DailyForecast';
@@ -117,8 +118,12 @@ const TILE_TEXT = {
   sm: { pad: 'p-2.5', name: 'text-base', temp: 'text-3xl', hum: 'text-lg', compact: true }
 };
 
+// 飽差の色（多湿は青、適正は緑、乾燥はオレンジ）
+const DEFICIT_TEXT = { low: 'text-blue-600 font-semibold', ok: 'text-green-700 font-semibold', high: 'text-orange-600 font-semibold' };
+
 const HouseTile = ({ house, data, now, size, onSelect }) => {
   const status = getStatus(data, now, getHouseThresholds(house));
+  const deficit = calcHumidityDeficit(data?.temperature, data?.humidity);
   const text = TILE_TEXT[size];
   return (
     <button
@@ -142,6 +147,13 @@ const HouseTile = ({ house, data, now, size, onSelect }) => {
           <Droplets className="inline h-5 w-5 text-gray-400 mr-1 align-[-2px]" aria-hidden="true" />
           {formatNumber(data?.humidity, 0)}
           <span className="text-base text-gray-500 ml-0.5">%</span>
+          {/* 飽差（温度と湿度から計算）。場所を取らないよう湿度と同じ行に出す */}
+          {deficit !== null && (
+            <span className="text-base ml-3">
+              <span className="text-gray-500">飽差 </span>
+              <span className={DEFICIT_TEXT[judgeHumidityDeficit(deficit).level]}>{deficit.toFixed(1)}</span>
+            </span>
+          )}
         </p>
         {/* 土壌水分センサーのあるハウスだけ表示する */}
         {typeof data?.soilMoisture === 'number' && (
@@ -290,7 +302,8 @@ const DetailOverlay = ({ target, onClose }) => {
               temperature: typeof r.temperature === 'number' ? Number(r.temperature.toFixed(1)) : null,
               humidity: typeof r.humidity === 'number' ? Number(r.humidity.toFixed(1)) : null,
               soilMoisture: typeof r.soilMoisture === 'number' ? Number(r.soilMoisture.toFixed(1)) : null,
-              co2: typeof r.co2 === 'number' ? Math.round(r.co2) : null
+              co2: typeof r.co2 === 'number' ? Math.round(r.co2) : null,
+              humidityDeficit: calcHumidityDeficit(r.temperature, r.humidity)
             }))
         );
       })
@@ -303,7 +316,9 @@ const DetailOverlay = ({ target, onClose }) => {
 
   const hasSoil = Array.isArray(history) && history.some(r => r.soilMoisture !== null);
   const hasCo2 = Array.isArray(history) && history.some(r => r.co2 !== null);
-  const chartCount = 2 + (hasSoil ? 1 : 0) + (hasCo2 ? 1 : 0);
+  // 外気（気象データ）以外は飽差も出す
+  const hasDeficit = target.source !== 'weather' && Array.isArray(history) && history.some(r => r.humidityDeficit !== null);
+  const chartCount = 2 + (hasDeficit ? 1 : 0) + (hasSoil ? 1 : 0) + (hasCo2 ? 1 : 0);
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-100 flex flex-col" onPointerDown={resetTimer}>
@@ -330,6 +345,9 @@ const DetailOverlay = ({ target, onClose }) => {
           <div className="h-full grid gap-3" style={{ gridTemplateRows: `repeat(${chartCount}, minmax(0, 1fr))` }}>
             <HistoryChart title="気温" unit="°C" dataKey="temperature" color="#ef4444" data={history} />
             <HistoryChart title="湿度" unit="%" dataKey="humidity" color="#3b82f6" data={history} />
+            {hasDeficit && (
+              <HistoryChart title="飽差" unit="g/m³" dataKey="humidityDeficit" color="#f97316" data={history} />
+            )}
             {hasSoil && (
               <HistoryChart title="土壌水分" unit="%" dataKey="soilMoisture" color="#10b981" data={history} />
             )}

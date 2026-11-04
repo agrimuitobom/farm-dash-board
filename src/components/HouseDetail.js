@@ -21,6 +21,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 // 環境データグラフコンポーネントをインポート
 import EnvironmentalChart from './EnvironmentalChart';
+import HumidityDeficitCard from './HumidityDeficitCard';
 import HouseFormModal from './houses/HouseFormModal';
 
 // Firestoreユーティリティをインポート
@@ -641,7 +642,7 @@ const HouseDetail = () => {
     }
 
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="flex items-center">
             <Thermometer className="h-5 w-5 text-red-500 mr-2" />
@@ -685,6 +686,12 @@ const HouseDetail = () => {
             <span className="text-gray-500 ml-1">ppm</span>
           </div>
         </div>
+
+        <HumidityDeficitCard
+          temperature={envData.temperature}
+          humidity={envData.humidity}
+          className="col-span-2 md:col-span-1"
+        />
       </div>
     );
   };

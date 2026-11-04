@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Clock, RefreshCw } from 'lucide-react';
+import { calcHumidityDeficit } from '../utils/humidityDeficit';
 
 const EnvironmentalChart = ({ data, onRefresh, timeRange = 24, onTimeRangeChange }) => {
-  const [selectedMetrics, setSelectedMetrics] = useState(['temperature', 'humidity', 'soilMoisture']);
+  const [selectedMetrics, setSelectedMetrics] = useState(['temperature', 'humidity', 'soilMoisture', 'humidityDeficit']);
   const [localTimeRange, setLocalTimeRange] = useState(timeRange);
 
   // 親から渡された時間範囲が変わったら同期
@@ -16,6 +17,7 @@ const EnvironmentalChart = ({ data, onRefresh, timeRange = 24, onTimeRangeChange
     { id: 'temperature', name: '温度', color: '#ef4444', unit: '°C' },
     { id: 'humidity', name: '湿度', color: '#3b82f6', unit: '%' },
     { id: 'soilMoisture', name: '土壌水分', color: '#10b981', unit: '%' },
+    { id: 'humidityDeficit', name: '飽差', color: '#f97316', unit: 'g/m³' },
     { id: 'light', name: '光量', color: '#f59e0b', unit: 'lux' },
     { id: 'co2', name: 'CO2', color: '#8b5cf6', unit: 'ppm' }
   ];
@@ -93,6 +95,8 @@ const EnvironmentalChart = ({ data, onRefresh, timeRange = 24, onTimeRangeChange
 
         return {
           ...item,
+          // 飽差は温度と湿度から計算する
+          humidityDeficit: calcHumidityDeficit(item.temperature, item.humidity),
           time
         };
       });
@@ -200,6 +204,18 @@ const EnvironmentalChart = ({ data, onRefresh, timeRange = 24, onTimeRangeChange
                   dataKey="soilMoisture" 
                   name="土壌水分" 
                   stroke="#10b981" 
+                  activeDot={{ r: 6 }} 
+                  dot={false}
+                />
+              )}
+              
+              {selectedMetrics.includes('humidityDeficit') && (
+                <Line 
+                  yAxisId="left"
+                  type="monotone" 
+                  dataKey="humidityDeficit" 
+                  name="飽差" 
+                  stroke="#f97316" 
                   activeDot={{ r: 6 }} 
                   dot={false}
                 />

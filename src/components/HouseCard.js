@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Thermometer, Droplets, Sprout, Wind, AlertTriangle, Calendar, ArrowRightCircle } from 'lucide-react';
+import { Thermometer, Droplets, Sprout, Wind, CloudDrizzle, AlertTriangle, Calendar, ArrowRightCircle } from 'lucide-react';
 import { environmentalRanges, getHouseThresholds } from '../utils/environmentalRanges';
+import { calcHumidityDeficit, judgeHumidityDeficit } from '../utils/humidityDeficit';
+import { HUMIDITY_DEFICIT_COLORS } from './HumidityDeficitCard';
 
 // 各作物タイプのBase64エンコードされた単色SVG画像（軽量）
 const coloredBackgrounds = {
@@ -53,6 +55,8 @@ const HouseCard = ({ house, environmentalData, alertCount = 0 }) => {
   };
 
   const plantingDays = getDaysSincePlanting();
+  const humidityDeficit = calcHumidityDeficit(environmentalData?.temperature, environmentalData?.humidity);
+  const deficitState = judgeHumidityDeficit(humidityDeficit);
 
   return (
     <Link to={`/house/${house.id}`} className="block group">
@@ -123,6 +127,14 @@ const HouseCard = ({ house, environmentalData, alertCount = 0 }) => {
                 土 {typeof environmentalData?.soilMoisture === 'number' ? Math.round(environmentalData.soilMoisture) : '--'}%
               </span>
             </div>
+            {/* 飽差（温度と湿度から計算） */}
+            {humidityDeficit !== null && (
+              <div className="col-span-3 flex items-center text-gray-600" title="飽差（適正 3〜6 g/m³）">
+                <CloudDrizzle className="h-3 w-3 mr-1 text-orange-500" />
+                飽差 {humidityDeficit.toFixed(1)} g/m³
+                <span className={`ml-1 font-medium ${HUMIDITY_DEFICIT_COLORS[deficitState.level]}`}>{deficitState.label}</span>
+              </div>
+            )}
             {/* CO2 センサーのあるハウスだけ表示する */}
             {typeof environmentalData?.co2 === 'number' && (
               <div className="col-span-3 flex items-center text-gray-600" title="CO2濃度">

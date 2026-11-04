@@ -18,6 +18,7 @@ import {
 import TabNavigation from './TabNavigation';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import EnvironmentalChart from '../EnvironmentalChart';
+import HumidityDeficitCard from '../HumidityDeficitCard';
 import FloatingActionButton from './FloatingActionButton';
 import HouseFormModal from '../houses/HouseFormModal';
 
@@ -244,6 +245,12 @@ const MobileHouseDetail = () => {
             <span className="text-gray-500 ml-1">ppm</span>
           </div>
         </div>
+
+        <HumidityDeficitCard
+          temperature={envData.temperature}
+          humidity={envData.humidity}
+          className="col-span-2"
+        />
       </div>
     );
   };
