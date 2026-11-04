@@ -26,6 +26,7 @@ import {
   subscribeToEnvironmentalData
 } from '../firestoreUtils';
 import { normalizeAlert } from '../utils/alerts';
+import { calcHumidityDeficit } from '../utils/humidityDeficit';
 import { normalizeTask, PRIORITY_LABELS, PRIORITY_CLASSES } from '../utils/tasks';
 
 // 数値でない（センサーが計測していない）項目は '--' と表示する
@@ -88,7 +89,8 @@ const sampleChartRecords = (records) => {
       name: d.timestamp.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
       温度: d.temperature,
       湿度: d.humidity,
-      土壌水分: d.soilMoisture
+      土壌水分: d.soilMoisture,
+      飽差: calcHumidityDeficit(d.temperature, d.humidity)
     }));
 };
 
@@ -443,6 +445,7 @@ const Dashboard = () => {
                       {chartData.some(d => typeof d.土壌水分 === 'number') && (
                         <Line type="monotone" dataKey="土壌水分" stroke="#10b981" dot={false} />
                       )}
+                      <Line type="monotone" dataKey="飽差" stroke="#f97316" dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
