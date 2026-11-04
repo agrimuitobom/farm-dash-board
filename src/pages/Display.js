@@ -152,6 +152,14 @@ const HouseTile = ({ house, data, now, size, onSelect }) => {
             <span className="text-base text-gray-500 ml-0.5">%</span>
           </p>
         )}
+        {/* CO2 センサーのあるハウスだけ表示する */}
+        {typeof data?.co2 === 'number' && (
+          <p className={`${text.hum} text-gray-700 whitespace-nowrap ${text.compact ? '' : 'mt-1'}`}>
+            <span className="text-base text-gray-500 mr-1">CO₂</span>
+            {formatNumber(data.co2, 0)}
+            <span className="text-base text-gray-500 ml-0.5">ppm</span>
+          </p>
+        )}
       </div>
       <div className="flex items-center justify-between gap-2 min-w-0">
         <span className="min-w-0 truncate"><StatusBadge status={status} /></span>
@@ -281,7 +289,8 @@ const DetailOverlay = ({ target, onClose }) => {
               time: r.timestamp.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
               temperature: typeof r.temperature === 'number' ? Number(r.temperature.toFixed(1)) : null,
               humidity: typeof r.humidity === 'number' ? Number(r.humidity.toFixed(1)) : null,
-              soilMoisture: typeof r.soilMoisture === 'number' ? Number(r.soilMoisture.toFixed(1)) : null
+              soilMoisture: typeof r.soilMoisture === 'number' ? Number(r.soilMoisture.toFixed(1)) : null,
+              co2: typeof r.co2 === 'number' ? Math.round(r.co2) : null
             }))
         );
       })
@@ -293,6 +302,8 @@ const DetailOverlay = ({ target, onClose }) => {
   }, [target.id, target.source]);
 
   const hasSoil = Array.isArray(history) && history.some(r => r.soilMoisture !== null);
+  const hasCo2 = Array.isArray(history) && history.some(r => r.co2 !== null);
+  const chartCount = 2 + (hasSoil ? 1 : 0) + (hasCo2 ? 1 : 0);
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-100 flex flex-col" onPointerDown={resetTimer}>
@@ -316,11 +327,14 @@ const DetailOverlay = ({ target, onClose }) => {
         ) : history.length === 0 ? (
           <div className="h-full flex items-center justify-center text-xl text-gray-500">過去24時間のデータがありません</div>
         ) : (
-          <div className={`h-full grid gap-3 ${hasSoil ? 'grid-rows-3' : 'grid-rows-2'}`}>
+          <div className="h-full grid gap-3" style={{ gridTemplateRows: `repeat(${chartCount}, minmax(0, 1fr))` }}>
             <HistoryChart title="気温" unit="°C" dataKey="temperature" color="#ef4444" data={history} />
             <HistoryChart title="湿度" unit="%" dataKey="humidity" color="#3b82f6" data={history} />
             {hasSoil && (
               <HistoryChart title="土壌水分" unit="%" dataKey="soilMoisture" color="#10b981" data={history} />
+            )}
+            {hasCo2 && (
+              <HistoryChart title="CO₂" unit="ppm" dataKey="co2" color="#8b5cf6" data={history} />
             )}
           </div>
         )}

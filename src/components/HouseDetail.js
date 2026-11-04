@@ -681,7 +681,7 @@ const HouseDetail = () => {
             <span className="text-gray-700 text-sm">CO₂</span>
           </div>
           <div className="mt-2">
-            <span className="text-2xl font-bold">{envData.co2Level?.toFixed(0) || '--'}</span>
+            <span className="text-2xl font-bold">{typeof (envData.co2 ?? envData.co2Level) === 'number' ? (envData.co2 ?? envData.co2Level).toFixed(0) : '--'}</span>
             <span className="text-gray-500 ml-1">ppm</span>
           </div>
         </div>
