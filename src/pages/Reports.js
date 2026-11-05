@@ -7,6 +7,7 @@ import ProductionReport from '../components/reports/ProductionReport';
 import ProductivityReport from '../components/reports/ProductivityReport';
 import CropTrendsReport from '../components/reports/CropTrendsReport';
 import HarvestRecords from '../components/reports/HarvestRecords';
+import EnvironmentalCsvExport from '../components/reports/EnvironmentalCsvExport';
 
 // ユーティリティ関数
 import { 
@@ -378,6 +379,9 @@ const Reports = () => {
       
       {/* レポート表示エリア */}
       {renderReportComponent()}
+
+      {/* 環境データ（温度・湿度など）の CSV ダウンロード */}
+      <EnvironmentalCsvExport houses={houses} />
     </div>
   );
 };

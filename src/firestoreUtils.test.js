@@ -20,7 +20,7 @@ const { Timestamp } = jest.requireActual('firebase/firestore');
 
 const NOW = new Date('2026-11-02T03:30:00Z');
 const at = (iso) => Timestamp.fromDate(new Date(iso));
-const snapshot = (docs) => ({ empty: docs.length === 0, docs: docs.map(data => ({ id: data.id, data: () => data })) });
+const snapshot = (docs) => ({ empty: docs.length === 0, size: docs.length, docs: docs.map(data => ({ id: data.id, data: () => data })) });
 
 describe('getEnvironmentalReadings（1時間ごとのまとめから読む）', () => {
   beforeEach(() => {
