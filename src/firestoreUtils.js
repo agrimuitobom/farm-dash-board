@@ -624,6 +624,44 @@ const hourKey = (date) => {
 };
 
 /**
+ * 期間を指定して、1時間ごとのまとめ（environmental_hourly）から計測値を読む
+ *
+ * まとめは1時間に1件なので、読み取りは「期間の時間数＋1」件（1週間なら169件）。
+ * ドキュメントIDは「ハウスID_YYYYMMDDHH」なので、ID の範囲で取り出せる（複合インデックス不要）。
+ * まとめが無い時間（Raspberry Pi の alert_monitor.py を更新する前など）は含まれない。
+ * @param {string} location - ハウスID
+ * @param {Date} start - 開始時刻
+ * @param {Date} end - 終了時刻
+ * @returns {Promise<{readings: Array, bundleCount: number}>} readings は新しい順の計測値
+ */
+export const getEnvironmentalReadingsBetween = async (location, start, end) => {
+  const bundlesQuery = query(
+    collection(db, 'environmental_hourly'),
+    where(documentId(), '>=', `${location}_${hourKey(start)}`),
+    where(documentId(), '<=', `${location}_${hourKey(end)}`)
+  );
+  const snapshot = await getDocs(bundlesQuery);
+
+  const readings = [];
+  snapshot.docs.forEach((bundle) => {
+    const data = bundle.data();
+    if (data.location !== location) return;
+    (data.readings || []).forEach((point) => {
+      const timestamp = convertTimestampToDate(point.t);
+      if (!timestamp || timestamp < start || timestamp > end) return;
+      readings.push({
+        timestamp,
+        temperature: point.temperature,
+        humidity: point.humidity,
+        soilMoisture: point.soilMoisture,
+        co2: point.co2
+      });
+    });
+  });
+  return { readings: readings.sort((a, b) => b.timestamp - a.timestamp), bundleCount: snapshot.size };
+};
+
+/**
  * 環境データの推移を、1時間ごとのまとめ（environmental_hourly）から読む
  *
  * まとめは1時間に1件なので、24時間で25件・1週間で169件の読み取りで済む
@@ -641,35 +679,11 @@ export const getEnvironmentalReadings = async (location, hours = 24) => {
 
   const now = new Date();
   const start = new Date(now.getTime() - hours * 60 * 60 * 1000);
-  // ドキュメントIDは「ハウスID_YYYYMMDDHH」なので、ID の範囲で取り出せる（複合インデックス不要）
-  const bundlesQuery = query(
-    collection(db, 'environmental_hourly'),
-    where(documentId(), '>=', `${location}_${hourKey(start)}`),
-    where(documentId(), '<=', `${location}_${hourKey(now)}`)
-  );
-  const snapshot = await getDocs(bundlesQuery);
-
-  if (snapshot.empty) {
+  const { readings, bundleCount } = await getEnvironmentalReadingsBetween(location, start, now);
+  if (bundleCount === 0) {
     return hours <= 24 ? getEnvironmentalHistory(location, hours) : [];
   }
-
-  const readings = [];
-  snapshot.docs.forEach((bundle) => {
-    const data = bundle.data();
-    if (data.location !== location) return;
-    (data.readings || []).forEach((point) => {
-      const timestamp = convertTimestampToDate(point.t);
-      if (!timestamp || timestamp < start) return;
-      readings.push({
-        timestamp,
-        temperature: point.temperature,
-        humidity: point.humidity,
-        soilMoisture: point.soilMoisture,
-        co2: point.co2
-      });
-    });
-  });
-  return readings.sort((a, b) => b.timestamp - a.timestamp);
+  return readings;
 };
 
 /**
