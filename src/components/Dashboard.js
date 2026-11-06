@@ -99,65 +99,6 @@ const Dashboard = () => {
   const [outdoorSensor, setOutdoorSensor] = useState(null);
   const [weather, setWeather] = useState(null);
   
-  // フォールバック用のダミーデータ
-  const dummyHouses = [
-    {
-      id: '温室ハウス1',
-      currentCrop: 'R6ミニトマト',
-      plantDate: new Date('2025-02-15'),
-      transplantDate: new Date('2025-03-01'),
-      fertilizeDate: new Date('2025-03-20'),
-      fertilizeInfo: '有機肥料500g/株',
-      harvestAmount: 15,
-      status: '生育中',
-      image: 'https://placehold.jp/150/FF6B6B/FFFFFF?text=トマト',
-    },
-    {
-      id: '温室ハウス2',
-      currentCrop: 'キュウリ',
-      plantDate: new Date('2025-02-10'),
-      transplantDate: new Date('2025-02-25'),
-      fertilizeDate: new Date('2025-03-15'),
-      fertilizeInfo: '液肥散布',
-      harvestAmount: 23,
-      status: '生育中',
-      image: 'https://placehold.jp/150/56E39F/FFFFFF?text=キュウリ',
-    },
-    {
-      id: '温室ハウス3',
-      currentCrop: 'パプリカ',
-      plantDate: new Date('2025-01-20'),
-      transplantDate: new Date('2025-02-10'),
-      fertilizeDate: new Date('2025-03-05'),
-      fertilizeInfo: '複合肥料300g/株',
-      harvestAmount: 12,
-      status: '生育中',
-      image: 'https://placehold.jp/150/FF9A3C/FFFFFF?text=パプリカ',
-    },
-    {
-      id: '温室ハウス4',
-      currentCrop: 'レタス',
-      plantDate: new Date('2025-02-28'),
-      transplantDate: new Date('2025-03-15'),
-      fertilizeDate: new Date('2025-03-25'),
-      fertilizeInfo: '有機肥料200g/株',
-      harvestAmount: 8,
-      status: '生育中',
-      image: 'https://placehold.jp/150/59CE8F/FFFFFF?text=レタス',
-    },
-    {
-      id: '温室ハウス5',
-      currentCrop: 'ナス',
-      plantDate: new Date('2025-02-05'),
-      transplantDate: new Date('2025-02-20'),
-      fertilizeDate: new Date('2025-03-10'),
-      fertilizeInfo: '有機肥料450g/株',
-      harvestAmount: 18,
-      status: '生育中',
-      image: 'https://placehold.jp/150/9F44D3/FFFFFF?text=ナス',
-    }
-  ];
-  
   // 状態の初期化
   const [houses, setHouses] = useState([]);
   // 推移グラフの元データ（古い順）。どのハウスの記録かも持っておき、切り替え直後に混ざらないようにする
@@ -166,7 +107,6 @@ const Dashboard = () => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isUsingDummyData, setIsUsingDummyData] = useState(false);
   const [housesEnvironmentalData, setHousesEnvironmentalData] = useState({});
   const [chartLocation, setChartLocation] = useState('');
   
@@ -180,16 +120,11 @@ const Dashboard = () => {
       try {
         setLoading(true);
         
-        // ハウス情報を取得
+        setError(null);
+        
+        // ハウス情報を取得（取得できなくても見本のデータは出さない）
         const housesData = await getAllHouses();
-        if (housesData && housesData.length > 0) {
-          // タイムスタンプをDate型に変換
-          const formattedHouses = housesData.map(house => formatFirestoreData(house));
-          setHouses(formattedHouses);
-        } else {
-          setHouses(dummyHouses);
-          setIsUsingDummyData(true);
-        }
+        setHouses((housesData || []).map(house => formatFirestoreData(house)));
         
         // タスク情報を取得
         try {
@@ -204,10 +139,8 @@ const Dashboard = () => {
         setLoading(false);
       } catch (err) {
         console.error('ダッシュボードデータ取得エラー:', err);
-        setError('データの取得中にエラーが発生しました。ダミーデータを使用します。');
-        // ダミーデータで続行
-        setHouses(dummyHouses);
-        setIsUsingDummyData(true);
+        setError(`ハウスのデータを取得できませんでした（${new Date().toLocaleString('ja-JP')}）。ネットワークとログイン状態を確認してください。`);
+        setHouses([]);
         setLoading(false);
       }
     };
@@ -225,7 +158,7 @@ const Dashboard = () => {
   ), []);
 
   // 各ハウスの環境データをリアルタイム監視（location がハウスIDのデータ）
-  const houseIdsKey = isUsingDummyData ? '' : houses.map(house => house.id).join('\n');
+  const houseIdsKey = houses.map(house => house.id).join('\n');
   useEffect(() => {
     if (!houseIdsKey) return undefined;
     
@@ -252,10 +185,10 @@ const Dashboard = () => {
 
   // 推移グラフで表示するハウス（最初はハウス一覧の先頭）
   useEffect(() => {
-    if (!chartLocation && !isUsingDummyData && houses.length > 0) {
+    if (!chartLocation && houses.length > 0) {
       setChartLocation(houses[0].id);
     }
-  }, [houses, chartLocation, isUsingDummyData]);
+  }, [houses, chartLocation]);
 
   // 選んだハウスの過去24時間の推移（1時間ごとのまとめから読むので25件程度）。読み込むのはハウスを選んだときの1回だけ。
   // その後は、ハウスカード用にリアルタイムで受け取っている最新値をグラフに付け足す
@@ -316,16 +249,18 @@ const Dashboard = () => {
       </div>
       
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
-          <p className="font-medium">エラー</p>
-          <p>{error}</p>
-        </div>
-      )}
-      
-      {isUsingDummyData && (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-700">
-          <p className="font-medium">注意</p>
-          <p>Firestoreのデータを取得できなかったため、ダミーデータを表示しています。ネットワークとログイン状態を確認してください。</p>
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 flex items-center justify-between gap-3">
+          <div>
+            <p className="font-medium">エラー</p>
+            <p>{error}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-3 py-1 bg-white border border-red-300 rounded text-sm whitespace-nowrap hover:bg-red-100"
+          >
+            再読み込み
+          </button>
         </div>
       )}
       
@@ -415,7 +350,7 @@ const Dashboard = () => {
             <div className="bg-white rounded-lg shadow p-4 lg:col-span-2">
               <div className="flex justify-between items-center mb-4 gap-2">
                 <h3 className="text-lg font-semibold">環境データ推移（過去24時間）</h3>
-                {!isUsingDummyData && houses.length > 0 && (
+                {houses.length > 0 && (
                   <select
                     value={chartLocation}
                     onChange={(e) => setChartLocation(e.target.value)}
@@ -477,8 +412,8 @@ const Dashboard = () => {
                 ))
               ) : (
                 <div className="col-span-full py-8 text-center text-gray-500">
-                  <p>ハウス情報がありません</p>
-                  <p className="text-sm mt-2">管理者設定ページからデータを初期化してください</p>
+                  <p>{error ? 'ハウス情報を取得できませんでした' : 'ハウスが登録されていません'}</p>
+                  {!error && <p className="text-sm mt-2">「温室ハウス一覧」から登録してください</p>}
                 </div>
               )}
             </div>
@@ -560,7 +495,6 @@ const Dashboard = () => {
               <p className="text-xs text-gray-600">環境データ時系列: {chartData.length}</p>
               <p className="text-xs text-gray-600">タスク数: {tasks.length}</p>
               <p className="text-xs text-gray-600">アラート数: {alerts.length}</p>
-              <p className="text-xs text-gray-600">ダミーデータ使用: {isUsingDummyData ? 'はい' : 'いいえ'}</p>
             </div>
           )}
         </>
