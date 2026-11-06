@@ -40,3 +40,8 @@ __pycache__/
 raspberry-pi/serviceAccount.json
 raspberry-pi/round-display/config.json
 raspberry-pi/round-display/preview.png
+
+# ハウスハブ（設定・データ・仮想環境は Git に入れない）
+house-hub/.env
+house-hub/data/
+house-hub/venv/
