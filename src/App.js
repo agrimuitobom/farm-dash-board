@@ -24,6 +24,7 @@ import Tasks from './pages/Tasks';
 import Visitors from './pages/Visitors';
 import Trainings from './pages/Trainings';
 import Display from './pages/Display';
+import Summary from './pages/Summary';
 
 import './App.css';
 
@@ -87,6 +88,8 @@ function App() {
           <Routes>
             {/* 常時表示用ディスプレイ（キオスク）: サイドバーやメニューを出さない */}
             <Route path="/display" element={<Display />} />
+            {/* まとめページ（人と AI アシスタントが読む、表の形が変わらないページ） */}
+            <Route path="/summary" element={<Summary />} />
             <Route path="/*" element={<MainLayout />} />
           </Routes>
         </ProtectedRoute>
