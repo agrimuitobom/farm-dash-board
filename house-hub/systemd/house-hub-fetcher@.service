@@ -1,0 +1,17 @@
+# ハウスハブの取り込み（@ の後ろにユーザー名を付けて使う）
+#   sudo cp systemd/house-hub-fetcher@.service /etc/systemd/system/
+#   sudo systemctl enable --now house-hub-fetcher@$USER
+[Unit]
+Description=House hub fetcher (Firestore -> SQLite, read-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=%i
+WorkingDirectory=/home/%i/farm-dash-board/house-hub
+ExecStart=/home/%i/farm-dash-board/house-hub/venv/bin/python -m app.fetcher
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

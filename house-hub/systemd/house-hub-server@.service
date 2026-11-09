@@ -1,0 +1,17 @@
+# ハウスハブの画面と API（@ の後ろにユーザー名を付けて使う）
+#   sudo cp systemd/house-hub-server@.service /etc/systemd/system/
+#   sudo systemctl enable --now house-hub-server@$USER
+[Unit]
+Description=House hub web/API (school LAN only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=%i
+WorkingDirectory=/home/%i/farm-dash-board/house-hub
+ExecStart=/home/%i/farm-dash-board/house-hub/venv/bin/python -m app.server
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
