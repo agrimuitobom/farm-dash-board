@@ -23,6 +23,7 @@ import {
   getEnvironmentalReadings
 } from '../firestoreUtils';
 import { getHouseThresholds } from '../utils/environmentalRanges';
+import { hasSoilSensor, withoutUnusedSoil } from '../utils/soilSensor';
 import { calcHumidityDeficit, judgeHumidityDeficit } from '../utils/humidityDeficit';
 import { isKioskMode } from '../utils/kioskMode';
 import { getCurrentWeather, getRecentHourlyWeather } from '../utils/weather/weatherApi';
@@ -121,14 +122,16 @@ const TILE_TEXT = {
 // 飽差の色（多湿は青、適正は緑、乾燥はオレンジ）
 const DEFICIT_TEXT = { low: 'text-blue-600 font-semibold', ok: 'text-green-700 font-semibold', high: 'text-orange-600 font-semibold' };
 
-const HouseTile = ({ house, data, now, size, onSelect }) => {
+const HouseTile = ({ house, data: rawData, now, size, onSelect }) => {
+  // 土壌水分センサーの無いハウスでは土壌水分を出さない
+  const data = withoutUnusedSoil(house, rawData);
   const status = getStatus(data, now, getHouseThresholds(house));
   const deficit = calcHumidityDeficit(data?.temperature, data?.humidity);
   const text = TILE_TEXT[size];
   return (
     <button
       type="button"
-      onClick={() => onSelect({ id: house.id, name: house.name || house.id })}
+      onClick={() => onSelect({ id: house.id, name: house.name || house.id, hasSoilSensor: hasSoilSensor(house) })}
       className={`bg-white rounded-xl shadow-sm ${text.pad} flex flex-col text-left min-h-0 min-w-0 overflow-hidden border-l-8 active:bg-gray-50`}
       style={{ borderLeftColor: STATUS_STYLES[status.key].color }}
     >
@@ -301,7 +304,7 @@ const DetailOverlay = ({ target, onClose }) => {
               time: r.timestamp.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
               temperature: typeof r.temperature === 'number' ? Number(r.temperature.toFixed(1)) : null,
               humidity: typeof r.humidity === 'number' ? Number(r.humidity.toFixed(1)) : null,
-              soilMoisture: typeof r.soilMoisture === 'number' ? Number(r.soilMoisture.toFixed(1)) : null,
+              soilMoisture: target.hasSoilSensor && typeof r.soilMoisture === 'number' ? Number(r.soilMoisture.toFixed(1)) : null,
               co2: typeof r.co2 === 'number' ? Math.round(r.co2) : null,
               humidityDeficit: calcHumidityDeficit(r.temperature, r.humidity)
             }))
@@ -312,7 +315,7 @@ const DetailOverlay = ({ target, onClose }) => {
         if (!cancelled) setHistory([]);
       });
     return () => { cancelled = true; };
-  }, [target.id, target.source]);
+  }, [target.id, target.source, target.hasSoilSensor]);
 
   const hasSoil = Array.isArray(history) && history.some(r => r.soilMoisture !== null);
   const hasCo2 = Array.isArray(history) && history.some(r => r.co2 !== null);

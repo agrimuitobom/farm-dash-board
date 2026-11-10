@@ -16,6 +16,7 @@ import {
 import { getHouseThresholds } from '../utils/environmentalRanges';
 import { calcHumidityDeficit, judgeHumidityDeficit } from '../utils/humidityDeficit';
 import { normalizeAlert } from '../utils/alerts';
+import { hasSoilSensor, withoutUnusedSoil } from '../utils/soilSensor';
 import { toJstIso, formatJst, startOfJstDay, summarizeReadings } from '../utils/summary';
 import { getCurrentWeather, getDailyForecast } from '../utils/weather/weatherApi';
 
@@ -152,7 +153,12 @@ const Summary = () => {
   }, []);
 
   const houseList = houses || [];
-  const rows = houseList.map(house => ({ house, ...describeLatest(house, latest[house.id], now) }));
+  const rows = houseList.map(house => ({ house, ...describeLatest(house, withoutUnusedSoil(house, latest[house.id]), now) }));
+  // 今日のまとめも、土壌水分センサーの無いハウスは土壌水分を出さない
+  const todayOf = (house) => {
+    const s = today?.houses?.[house.id];
+    return s && !hasSoilSensor(house) ? { ...s, soilMoisture: null } : s;
+  };
 
   const latestLoaded = houses !== null && rows.every(r => r.status !== '読み込み中');
   const todayLoaded = houseList.length === 0 || today !== null || todayError !== null;
@@ -184,7 +190,7 @@ const Summary = () => {
       soil_moisture: r.soilMoisture ?? null,
       co2: r.co2 ?? null,
       notes: r.notes || [],
-      today: today?.houses?.[r.house.id] ?? null
+      today: todayOf(r.house) ?? null
     })),
     today_range: today ? { from: toJstIso(today.from), to: toJstIso(today.to) } : null,
     alerts: (alerts || []).map(a => ({
@@ -269,7 +275,7 @@ const Summary = () => {
               </thead>
               <tbody>
                 {houseList.map(house => {
-                  const s = today.houses[house.id];
+                  const s = todayOf(house);
                   const range = (m, digits) => (s && s[m] ? `${fmt(s[m].avg, digits)} / ${fmt(s[m].max, digits)} / ${fmt(s[m].min, digits)}` : '-');
                   return (
                     <tr key={house.id}>

@@ -387,6 +387,8 @@ const toHouseDocument = (houseData) => ({
   plantDate: houseData.plantDate ? Timestamp.fromDate(new Date(houseData.plantDate)) : null,
   area: houseData.area === '' || houseData.area == null ? null : Number(houseData.area),
   notes: houseData.notes?.trim() || '',
+  // 土壌水分センサーを付けているか（付けていないハウスは画面に土壌水分を出さない）
+  hasSoilSensor: houseData.hasSoilSensor === true,
   // アラートと画面表示の判定に使う閾値（フォームの文字列を数値にして保存）
   thresholds: {
     temperature: {

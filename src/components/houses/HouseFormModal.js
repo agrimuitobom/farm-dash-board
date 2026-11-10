@@ -18,6 +18,7 @@ const toFormValues = (house) => ({
   plantDate: house?.plantDate instanceof Date ? format(house.plantDate, 'yyyy-MM-dd') : '',
   area: house?.area ?? '',
   notes: house?.notes || '',
+  hasSoilSensor: house?.hasSoilSensor === true,
   // 未設定のハウスは既定値を初期値として表示する
   thresholds: (() => {
     const t = getHouseThresholds(house);
@@ -267,6 +268,21 @@ const HouseFormModal = ({ isOpen, onClose, house = null, onSaved, onDeleted }) =
                 min="0"
                 step="any"
               />
+            </div>
+
+            <div>
+              <label className="inline-flex items-center text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={formData.hasSoilSensor}
+                  onChange={(e) => setFormData(prev => ({ ...prev, hasSoilSensor: e.target.checked }))}
+                  className="mr-2 h-4 w-4"
+                />
+                土壌水分センサーあり
+              </label>
+              <p className="mt-1 text-xs text-gray-500">
+                チェックしていないハウスは、土壌水分を表示しません（センサーをつないでいない機器が送る 100% などを隠すため）
+              </p>
             </div>
 
             <fieldset className="border border-gray-200 rounded-md p-3">

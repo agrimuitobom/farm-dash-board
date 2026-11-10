@@ -27,6 +27,7 @@ import {
 } from '../firestoreUtils';
 import { normalizeAlert } from '../utils/alerts';
 import { calcHumidityDeficit } from '../utils/humidityDeficit';
+import { withoutUnusedSoil } from '../utils/soilSensor';
 import { normalizeTask, PRIORITY_LABELS, PRIORITY_CLASSES } from '../utils/tasks';
 
 // 数値でない（センサーが計測していない）項目は '--' と表示する
@@ -237,8 +238,13 @@ const Dashboard = () => {
   }, [latestForChart, chartLocation]);
 
   const chartData = useMemo(
-    () => (chartHistory.location === chartLocation ? sampleChartRecords(chartHistory.records) : []),
-    [chartHistory, chartLocation]
+    () => {
+      if (chartHistory.location !== chartLocation) return [];
+      // 土壌水分センサーの無いハウスでは土壌水分の線を出さない
+      const chartHouse = houses.find(house => house.id === chartLocation);
+      return sampleChartRecords(chartHistory.records.map(r => withoutUnusedSoil(chartHouse, r)));
+    },
+    [chartHistory, chartLocation, houses]
   );
 
   return (

@@ -28,7 +28,8 @@ describe('環境データの CSV ダウンロード', () => {
     global.URL.revokeObjectURL = jest.fn();
     getEnvironmentalReadingsBetween.mockImplementation(async (houseId) => ({
       readings: [
-        { timestamp: new Date(2026, 10, 5, 9, 2), temperature: 24, humidity: 60, ...(houseId === 'h3' ? { co2: 600 } : {}) },
+        // h1 は土壌水分センサーが無いのに 100% を送ってくる（CSV には出さない）
+        { timestamp: new Date(2026, 10, 5, 9, 2), temperature: 24, humidity: 60, soilMoisture: 100, ...(houseId === 'h3' ? { co2: 600 } : {}) },
         { timestamp: new Date(2026, 10, 5, 9, 0), temperature: 22, humidity: 70 }
       ],
       bundleCount: 1

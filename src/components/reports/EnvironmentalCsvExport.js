@@ -4,6 +4,7 @@ import { Download, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getEnvironmentalReadingsBetween } from '../../firestoreUtils';
 import { CSV_INTERVALS, buildEnvironmentalCsv, toCsvText } from '../../utils/environmentalCsv';
+import { withoutUnusedSoil } from '../../utils/soilSensor';
 
 const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500';
 
@@ -56,7 +57,8 @@ const EnvironmentalCsvExport = ({ houses }) => {
         const house = targets[i];
         setProgress(`${house.name || house.id} を読み込み中（${i + 1}/${targets.length}）`);
         const { readings } = await getEnvironmentalReadingsBetween(house.id, start, end);
-        houseData.push({ houseName: house.name || house.id, readings });
+        // 土壌水分センサーの無いハウスは土壌水分を出さない
+        houseData.push({ houseName: house.name || house.id, readings: readings.map(r => withoutUnusedSoil(house, r)) });
       }
       const csv = buildEnvironmentalCsv(houseData, form.interval);
       if (csv.rows.length === 0) {
