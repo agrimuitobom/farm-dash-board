@@ -90,6 +90,8 @@ def to_house(document):
         "name": data.get("name") or house_id,
         # 栽培作物が登録されていればそれを使う（ダッシュボードと同じ）
         "crop": "・".join(names) or data.get("currentCrop") or "",
+        # ダッシュボードの「土壌水分センサーあり」。無いハウスは土壌水分を出さない
+        "has_soil_sensor": data.get("hasSoilSensor") is True,
         "thresholds": {
             "temperature": _range(thresholds, "temperature", (18, 30)),
             "humidity": _range(thresholds, "humidity", (50, 80)),

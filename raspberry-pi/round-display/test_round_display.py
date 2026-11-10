@@ -60,7 +60,8 @@ class FakeSession:
                           "temperature": {"mapValue": {"fields": {"min": {"integerValue": "15"},
                                                                   "max": {"doubleValue": 28.5}}}},
                       }}}),
-            house_doc("温室ハウス1", name={"stringValue": "温室ハウス1"}, currentCrop={"stringValue": "キュウリ"}),
+            house_doc("温室ハウス1", name={"stringValue": "温室ハウス1"}, currentCrop={"stringValue": "キュウリ"},
+                      hasSoilSensor={"booleanValue": True}),
             house_doc("温室ハウス9", name={"stringValue": "使っていない"}, isActive={"booleanValue": False}),
             house_doc("_meta"),
         ]})
@@ -74,6 +75,7 @@ def test_houses_and_readings():
     assert h3["crop"] == "サラダ菜・レタス"  # 栽培作物を優先
     assert h3["thresholds"] == {"temperature": (15, 28.5), "humidity": (50, 80)}
     assert houses[0]["crop"] == "キュウリ"
+    assert (houses[0]["has_soil_sensor"], h3["has_soil_sensor"]) == (True, False)
     assert [h["id"] for h in data.houses(["温室ハウス3", "無い"])] == ["温室ハウス3"]
 
     reading = data.latest_reading("温室ハウス3")
@@ -94,6 +96,17 @@ def test_sign_in_failure_message():
 def test_parse_timestamp_variants():
     assert farm_data.parse_timestamp("2026-10-29T03:12:45Z") == datetime(2026, 10, 29, 3, 12, 45, tzinfo=timezone.utc)
     assert farm_data.parse_timestamp("2026-10-29T03:12:45.5Z").microsecond == 500000
+
+
+def test_soil_shown_only_with_sensor():
+    fonts = screens.Fonts(*FONTS)
+    now = datetime(2026, 11, 10, 3, 0, tzinfo=timezone.utc)
+    reading = {"temperature": 25.0, "humidity": 60, "soilMoisture": 100, "timestamp": now}
+    base = {"id": "h", "name": "h", "crop": "", "thresholds": screens.DEFAULT_THRESHOLDS}
+    without = screens.draw_house(fonts, {**base, "has_soil_sensor": False}, reading, now, 0, 2)
+    with_sensor = screens.draw_house(fonts, {**base, "has_soil_sensor": True}, reading, now, 0, 2)
+    assert without.tobytes() != with_sensor.tobytes()
+    assert without.tobytes() == screens.draw_house(fonts, base, {**reading, "soilMoisture": None}, now, 0, 2).tobytes()
 
 
 def test_age_and_judge():

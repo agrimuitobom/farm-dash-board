@@ -22,6 +22,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 // 環境データグラフコンポーネントをインポート
 import EnvironmentalChart from './EnvironmentalChart';
 import HumidityDeficitCard from './HumidityDeficitCard';
+import { withoutUnusedSoil } from '../utils/soilSensor';
 import HouseFormModal from './houses/HouseFormModal';
 
 // Firestoreユーティリティをインポート
@@ -702,7 +703,7 @@ const HouseDetail = () => {
       <div className="bg-white p-4 rounded-lg shadow">
         <h3 className="text-lg font-semibold mb-4">環境データの推移</h3>
         <EnvironmentalChart
-          data={envHistory}
+          data={envHistory.map(r => withoutUnusedSoil(house, r))}
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange}
         />

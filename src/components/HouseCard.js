@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Thermometer, Droplets, Sprout, Wind, CloudDrizzle, AlertTriangle, Calendar, ArrowRightCircle } from 'lucide-react';
 import { environmentalRanges, getHouseThresholds } from '../utils/environmentalRanges';
+import { withoutUnusedSoil } from '../utils/soilSensor';
 import { calcHumidityDeficit, judgeHumidityDeficit } from '../utils/humidityDeficit';
 import { HUMIDITY_DEFICIT_COLORS } from './HumidityDeficitCard';
 
@@ -16,7 +17,9 @@ const coloredBackgrounds = {
 };
 
 
-const HouseCard = ({ house, environmentalData, alertCount = 0 }) => {
+const HouseCard = ({ house, environmentalData: rawEnvironmentalData, alertCount = 0 }) => {
+  // 土壌水分センサーの無いハウスでは土壌水分を出さない
+  const environmentalData = withoutUnusedSoil(house, rawEnvironmentalData);
   // 作物タイプに基づいて背景画像を選択
   const getBackgroundImage = () => {
     if (!house.currentCrop) return coloredBackgrounds.default;

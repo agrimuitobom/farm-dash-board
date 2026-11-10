@@ -19,6 +19,7 @@ import TabNavigation from './TabNavigation';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import EnvironmentalChart from '../EnvironmentalChart';
 import HumidityDeficitCard from '../HumidityDeficitCard';
+import { withoutUnusedSoil } from '../../utils/soilSensor';
 import FloatingActionButton from './FloatingActionButton';
 import HouseFormModal from '../houses/HouseFormModal';
 
@@ -379,7 +380,7 @@ const MobileHouseDetail = () => {
             
             <h3 className="text-lg font-semibold mt-6">環境データの推移</h3>
             <EnvironmentalChart
-              data={envHistory}
+              data={envHistory.map(r => withoutUnusedSoil(house, r))}
               timeRange={timeRange}
               onTimeRangeChange={setTimeRange}
             />

@@ -133,7 +133,8 @@ def draw_house(fonts, house, reading, now, page, page_count, connected=True):
     thresholds = house.get("thresholds") or DEFAULT_THRESHOLDS
     temperature = reading.get("temperature")
     humidity = reading.get("humidity")
-    soil = reading.get("soilMoisture")
+    # 土壌水分センサーの無いハウスでは、送られてきた値（100% など）を出さない
+    soil = reading.get("soilMoisture") if house.get("has_soil_sensor") else None
 
     _centered(draw, 36, [(house.get("name") or house["id"], fonts.medium, WHITE)])
     if house.get("crop"):
