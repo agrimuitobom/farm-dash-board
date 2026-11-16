@@ -3,11 +3,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth } from '../firebase';
 import { 
   signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendPasswordResetEmail,
-  updateProfile
+  sendPasswordResetEmail
 } from 'firebase/auth';
 
 const AuthContext = createContext();
@@ -35,24 +33,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ユーザー登録
-  const signup = async (email, password, displayName) => {
-    try {
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // 表示名を設定
-      if (displayName && result.user) {
-        await updateProfile(result.user, {
-          displayName: displayName
-        });
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('ユーザー登録エラー:', error);
-      throw error;
-    }
-  };
+  // 新規登録の機能は置かない（アカウントは管理者が Firebase コンソールで作成する）
 
   // ログアウト
   const logout = async () => {
@@ -90,7 +71,6 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     login,
-    signup,
     logout,
     resetPassword,
     loading
