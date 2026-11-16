@@ -10,6 +10,8 @@ Firestore の変更を購読（on_snapshot）して受け取るので、毎分�
 受け取った計測値は、グラフ用の「1時間ごとのまとめ」（environmental_hourly）にも追記する
 （hourly_bundles.py）。起動したときは、止まっていた間の分を最大24時間さかのぼって追記する。
 
+保存期間（既定30日）より古い environmental_data は、まとめへ書き写したうえで少しずつ消す（cleanup.py）。
+
   python3 alert_monitor.py                        # 見張りを始める
   python3 alert_monitor.py --backfill-hours 168   # 1週間分のまとめを作って終わる（1回だけ）
 
@@ -29,6 +31,7 @@ from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud.firestore_v1.query import Query
 
+import cleanup
 import hourly_bundles
 
 SERVICE_ACCOUNT = os.environ.get(
@@ -42,6 +45,10 @@ BACKFILL_HOURS_ON_START = 24
 STALE_AFTER = timedelta(minutes=10)
 # 最後のデータがこれより古いハウスは、センサーが外されたとみなして通信なしのアラートを出さない
 GIVE_UP_AFTER = timedelta(hours=24)
+
+# 古い環境データを消す処理（cleanup.py）を動かす間隔。起動直後は少し待ってから始める
+CLEANUP_INTERVAL = 60 * 60
+CLEANUP_FIRST_DELAY = 5 * 60
 
 # 閾値の既定値（ダッシュボードの src/utils/environmentalRanges.js と同じ値）
 DEFAULT_THRESHOLDS = {
@@ -317,6 +324,36 @@ def make_db():
     return firestore.client()
 
 
+def start_cleanup(db):
+    """古い環境データを消す処理を、見張りとは別のスレッドで定期的に動かす"""
+    days = cleanup.retention_days()
+    if days <= 0:
+        log("古い環境データは消しません（FARM_RETENTION_DAYS=0）")
+        return None
+    try:
+        cleanup.check_retention(days)
+    except ValueError as e:
+        log("古い環境データは消しません:", e)
+        return None
+    cleaner = cleanup.DailyCleaner(db, log=log)
+
+    def loop():
+        time.sleep(CLEANUP_FIRST_DELAY)
+        while True:
+            try:
+                deleted = cleaner.run()
+                if deleted:
+                    log(f"{days} 日より古い環境データを {deleted} 件消しました")
+            except Exception as e:  # 次の回にやり直すので、見張りは止めない
+                log("古い環境データの削除に失敗:", e)
+            time.sleep(CLEANUP_INTERVAL)
+
+    thread = threading.Thread(target=loop, daemon=True)
+    thread.start()
+    log(f"{days} 日より古い環境データを、1日 {cleanup.max_per_day()} 件まで消します")
+    return thread
+
+
 def run_backfill(db, hours):
     """全ハウスについて、hours 時間前からのまとめを作る（足りない分を追記する）"""
     for doc in db.collection("houses").stream():
@@ -337,7 +374,9 @@ def main():
         return
 
     log("アラート見張りを開始します")
-    monitor = AlertMonitor(make_db())
+    db = make_db()
+    monitor = AlertMonitor(db)
+    start_cleanup(db)
     try:
         while True:
             time.sleep(CHECK_INTERVAL)

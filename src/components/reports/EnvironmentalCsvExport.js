@@ -85,10 +85,10 @@ const EnvironmentalCsvExport = ({ houses }) => {
 
   return (
     <div className="bg-white rounded-lg shadow mb-6">
-      <div className="p-4 border-b flex items-center">
+      <div className="p-4 border-b flex flex-wrap items-center gap-y-1">
         <Download className="w-5 h-5 text-green-600 mr-2" />
-        <h3 className="text-lg font-semibold">環境データのダウンロード（CSV）</h3>
-        <span className="ml-3 text-sm text-gray-500">温度・湿度・飽差・土壌水分・CO2</span>
+        <h3 className="text-lg font-semibold mr-3">環境データのダウンロード（CSV）</h3>
+        <span className="text-sm text-gray-500">温度・湿度・飽差・土壌水分・CO2</span>
       </div>
 
       <div className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">

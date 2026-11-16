@@ -113,7 +113,7 @@ const TrainingForm = ({ training, onSave, onCancel }) => {
             name="title"
             value={formData.title}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             required
           />
         </div>
@@ -128,7 +128,7 @@ const TrainingForm = ({ training, onSave, onCancel }) => {
             name="category"
             value={formData.category}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           >
             <option value="">選択してください</option>
             {categoryOptions.map((category, index) => (
@@ -148,7 +148,7 @@ const TrainingForm = ({ training, onSave, onCancel }) => {
             name="instructor"
             value={formData.instructor}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
         
@@ -163,7 +163,7 @@ const TrainingForm = ({ training, onSave, onCancel }) => {
             name="trainingDate"
             value={formData.trainingDate}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             required
           />
         </div>
@@ -180,7 +180,7 @@ const TrainingForm = ({ training, onSave, onCancel }) => {
             value={formData.duration}
             onChange={handleChange}
             placeholder="例: 2時間"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
         
@@ -195,7 +195,7 @@ const TrainingForm = ({ training, onSave, onCancel }) => {
             name="location"
             value={formData.location}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
         
@@ -211,7 +211,7 @@ const TrainingForm = ({ training, onSave, onCancel }) => {
             value={formData.participants}
             onChange={handleChange}
             placeholder="例: 全スタッフ10名"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -227,7 +227,7 @@ const TrainingForm = ({ training, onSave, onCancel }) => {
           rows="3"
           value={formData.content}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
         ></textarea>
       </div>
       
@@ -242,7 +242,7 @@ const TrainingForm = ({ training, onSave, onCancel }) => {
           rows="2"
           value={formData.notes}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
         ></textarea>
       </div>
       

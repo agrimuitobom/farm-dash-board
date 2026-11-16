@@ -113,10 +113,10 @@ const HarvestRecords = ({ houses, crops, startDate, endDate, onChanged }) => {
 
   return (
     <div className="bg-white rounded-lg shadow mb-6">
-      <div className="p-4 border-b flex items-center">
+      <div className="p-4 border-b flex flex-wrap items-center gap-y-1">
         <Sprout className="w-5 h-5 text-green-600 mr-2" />
-        <h3 className="text-lg font-semibold">収穫記録</h3>
-        <span className="ml-3 text-sm text-gray-500">ここで記録した収穫量がレポートに集計されます</span>
+        <h3 className="text-lg font-semibold whitespace-nowrap mr-3">収穫記録</h3>
+        <span className="text-sm text-gray-500">ここで記録した収穫量がレポートに集計されます</span>
       </div>
 
       <form onSubmit={handleSubmit} className="p-4 grid grid-cols-1 md:grid-cols-6 gap-3 items-end border-b">
@@ -159,7 +159,7 @@ const HarvestRecords = ({ houses, crops, startDate, endDate, onChanged }) => {
       </form>
 
       <div className="p-4">
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-1 mb-2">
           <p className="text-sm text-gray-600">
             選択中の期間（{startDate.toLocaleDateString('ja-JP')} 〜 {endDate.toLocaleDateString('ja-JP')}）の記録
           </p>
@@ -170,7 +170,34 @@ const HarvestRecords = ({ houses, crops, startDate, endDate, onChanged }) => {
         ) : records.length === 0 ? (
           <p className="text-sm text-gray-500 py-4 text-center">この期間の収穫記録はありません</p>
         ) : (
-          <div className="max-h-64 overflow-y-auto border rounded">
+          <>
+          {/* スマホ: 表の代わりに1件ずつ並べる */}
+          <ul className="md:hidden max-h-80 overflow-y-auto border rounded divide-y divide-gray-200 text-sm">
+            {records.map(record => (
+              <li key={record.id} className="flex items-center px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between gap-2">
+                    <span className="font-medium text-gray-900 break-words min-w-0">{record.cropName || '-'}</span>
+                    <span className="whitespace-nowrap font-medium">{record.quantity} kg</span>
+                  </div>
+                  <div className="text-gray-500 break-words">
+                    {record.harvestDate instanceof Date ? record.harvestDate.toLocaleDateString('ja-JP') : '-'}
+                    {record.houseName ? ` ・ ${record.houseName}` : ''}
+                  </div>
+                  {record.notes && <div className="text-gray-600 break-words">{record.notes}</div>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(record)}
+                  className="ml-2 p-2 text-red-600 hover:bg-red-50 rounded"
+                  aria-label="この収穫記録を削除"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden md:block max-h-64 overflow-y-auto border rounded">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
@@ -208,6 +235,7 @@ const HarvestRecords = ({ houses, crops, startDate, endDate, onChanged }) => {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>
