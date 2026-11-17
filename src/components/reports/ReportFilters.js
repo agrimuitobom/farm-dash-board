@@ -266,11 +266,11 @@ const ReportFilters = ({
       </div>
       
       {/* ボタンエリア */}
-      <div className="mt-4 flex justify-between">
-        <div>
+      <div className="mt-4 flex flex-wrap justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={onGenerateReport}
-            className="flex items-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg mr-2"
+            className="flex items-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
           >
             <BarChart2 className="w-4 h-4 mr-2" />
             レポート生成

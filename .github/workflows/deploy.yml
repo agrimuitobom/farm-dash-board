@@ -1,14 +1,17 @@
-name: Deploy to Firebase Hosting
+name: Test and deploy
 
+# プルリクエストではテストとビルドだけを行う。
+# main に入ったら、テストが通ったときだけ本番（Firebase）へデプロイする。
 on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
-  deploy:
+  web:
+    name: Web（テストとビルド）
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,12 +25,89 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test
+        run: npm test -- --watchAll=false
+        env:
+          CI: true
+
       - name: Build
         run: npm run build
         env:
+          # ESLint の警告でビルドを止めない（警告を直しきったら外す）
           CI: false
+
+      - name: Upload build
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: build
+          include-hidden-files: true
+          retention-days: 1
+
+  python:
+    name: Python（Raspberry Pi・ハウスハブのテスト）
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          pip install pytest google-cloud-firestore pillow numpy requests
+          pip install -r house-hub/requirements-dev.txt
+
+      - name: Test raspberry-pi
+        working-directory: raspberry-pi
+        run: python -m pytest test_cleanup.py
+
+      - name: Test round-display
+        working-directory: raspberry-pi/round-display
+        run: python -m pytest test_round_display.py
+
+      - name: Test house-hub
+        working-directory: house-hub
+        run: python -m pytest
+
+  deploy:
+    name: Firebase へデプロイ
+    if: github.event_name == 'push'
+    needs: [web, python]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: build
 
       - name: Deploy to Firebase Hosting
         run: npx firebase-tools deploy --only hosting --token "$FIREBASE_TOKEN" --project farm-dashboard-95875
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      # firestore.rules と firestore.indexes.json を本番に反映する
+      # （リポジトリに無いインデックスは消さない。消すには --force が要る）
+      - name: Deploy Firestore rules and indexes
+        run: npx firebase-tools deploy --only firestore:rules,firestore:indexes --token "$FIREBASE_TOKEN" --project farm-dashboard-95875
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

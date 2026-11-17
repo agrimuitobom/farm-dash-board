@@ -447,22 +447,22 @@ const Tasks = () => {
 
   // レンダリング部分
   return (
-    <div className="container px-4 py-8 mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container px-4 py-4 md:py-8 mx-auto">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-6">
         <h1 className="text-2xl font-bold text-gray-800">タスク管理</h1>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-wrap items-center gap-3">
           {/* 表示切り替えボタン */}
           <div className="bg-gray-200 rounded-lg p-1 flex">
             <button
               onClick={() => toggleViewMode('list')}
-              className={`flex items-center px-3 py-1 rounded-md ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
+              className={`flex items-center whitespace-nowrap px-3 py-2 md:py-1 rounded-md ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
             >
               <List className="w-4 h-4 mr-1" />
               リスト
             </button>
             <button
               onClick={() => toggleViewMode('calendar')}
-              className={`flex items-center px-3 py-1 rounded-md ${viewMode === 'calendar' ? 'bg-white shadow-sm' : ''}`}
+              className={`flex items-center whitespace-nowrap px-3 py-2 md:py-1 rounded-md ${viewMode === 'calendar' ? 'bg-white shadow-sm' : ''}`}
             >
               <Calendar className="w-4 h-4 mr-1" />
               カレンダー
@@ -473,7 +473,7 @@ const Tasks = () => {
           {viewMode === 'calendar' && (
             <button
               onClick={toggleCalendarView}
-              className="ml-2 px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+              className="px-3 py-2 md:py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
             >
               {calendarView === 'simple' ? '拡張カレンダーに切替' : 'シンプルカレンダーに切替'}
             </button>
@@ -482,7 +482,7 @@ const Tasks = () => {
           {/* タスク追加ボタン */}
           <button
             onClick={handleOpenAddModal}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center whitespace-nowrap ml-auto md:ml-0 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <PlusCircle className="w-5 h-5 mr-2" />
             新規タスク追加
@@ -525,7 +525,7 @@ const Tasks = () => {
           {viewMode === 'list' && (
             <>
               {selectedVisibleIds.length > 0 && (
-                <div className="mb-3 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
                   <span className="text-sm text-blue-900">{selectedVisibleIds.length} 件を選択中</span>
                   <button
                     onClick={handleDeleteSelected}

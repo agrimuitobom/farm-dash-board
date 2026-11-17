@@ -1,8 +1,9 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
@@ -30,6 +31,7 @@ import './App.css';
 
 function MainLayout() {
   const isMobile = useMediaQuery('(max-width: 767px)');
+  const location = useLocation();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -44,6 +46,8 @@ function MainLayout() {
         {!isMobile && <Navbar />}
         
         <main className={`flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 ${isMobile ? 'mobile-adjust' : 'p-4'}`}>
+          {/* 1つのページで例外が起きても、メニューは残してほかのページへ移動できるようにする */}
+          <ErrorBoundary resetKey={location.pathname}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             
@@ -72,6 +76,7 @@ function MainLayout() {
             {/* キャッチオールルート - 存在しないパスはダッシュボードにリダイレクト */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     </div>
@@ -82,18 +87,21 @@ function MainLayout() {
 function App() {
   return (
     <BrowserRouter>
+      <ErrorBoundary fullScreen>
       <AuthProvider>
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
         <ProtectedRoute>
           <Routes>
             {/* 常時表示用ディスプレイ（キオスク）: サイドバーやメニューを出さない */}
-            <Route path="/display" element={<Display />} />
+            {/* 誰も操作しない画面なので、例外が起きたら自動で読み込み直す */}
+            <Route path="/display" element={<ErrorBoundary fullScreen autoReloadSeconds={30}><Display /></ErrorBoundary>} />
             {/* まとめページ（人と AI アシスタントが読む、表の形が変わらないページ） */}
-            <Route path="/summary" element={<Summary />} />
+            <Route path="/summary" element={<ErrorBoundary fullScreen><Summary /></ErrorBoundary>} />
             <Route path="/*" element={<MainLayout />} />
           </Routes>
         </ProtectedRoute>
       </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

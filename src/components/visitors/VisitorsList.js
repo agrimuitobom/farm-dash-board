@@ -54,7 +54,7 @@ const VisitorsList = ({ visitors, onEdit, onView, onRefresh }) => {
     <div className="overflow-x-auto">
       {/* 削除確認モーダル */}
       {confirmDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
             <h3 className="text-lg font-medium text-gray-900 mb-4">訪問者情報の削除確認</h3>
             <p className="text-sm text-gray-500 mb-4">
@@ -82,8 +82,32 @@ const VisitorsList = ({ visitors, onEdit, onView, onRefresh }) => {
         </div>
       )}
 
+      {/* スマホ: 横に長い表の代わりに、1件ずつカードで表示する */}
+      <ul className="md:hidden divide-y divide-gray-200">
+        {visitors.map((visitor) => (
+          <li key={visitor.id} className="px-4 pt-3 pb-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-base font-medium text-gray-900 break-words min-w-0">{visitor.visitorName}</p>
+              <p className="text-sm text-gray-600 whitespace-nowrap">{formatDate(visitor.visitDate)}</p>
+            </div>
+            {visitor.company && <p className="text-sm text-gray-700 break-words">{visitor.company}</p>}
+            <dl className="mt-1 text-sm text-gray-500 space-y-0.5">
+              {visitor.purpose && <div className="break-words">目的: {visitor.purpose}</div>}
+              {visitor.area && <div className="break-words">エリア: {visitor.area}</div>}
+              {visitor.host && <div className="break-words">対応者: {visitor.host}</div>}
+              {visitor.contact && <div className="break-words">連絡先: {visitor.contact}</div>}
+            </dl>
+              <div className="mt-3 flex border-t border-gray-100 pt-1">
+                <button onClick={() => onView(visitor)} className="flex-1 py-2 text-sm font-medium text-blue-600">詳細</button>
+                <button onClick={() => onEdit(visitor)} className="flex-1 py-2 text-sm font-medium text-indigo-600">編集</button>
+                <button onClick={() => handleDeleteClick(visitor)} className="flex-1 py-2 text-sm font-medium text-red-600">削除</button>
+              </div>
+          </li>
+        ))}
+      </ul>
+
       {/* 訪問者一覧テーブル */}
-      <table className="min-w-full divide-y divide-gray-200">
+      <table className="hidden md:table min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

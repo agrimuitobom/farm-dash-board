@@ -45,3 +45,9 @@ raspberry-pi/round-display/preview.png
 house-hub/.env
 house-hub/data/
 house-hub/venv/
+
+# 古い環境データを消した件数の控え
+raspberry-pi/cleanup_state.json
+
+# エミュレーターのログ
+*-debug.log

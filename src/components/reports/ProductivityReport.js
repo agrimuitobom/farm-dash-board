@@ -37,7 +37,7 @@ const ProductivityReport = ({ data, reportTitle, quantityUnit = 'kg', areaUnit =
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
       {/* ヘッダー部分 */}
-      <div className="p-4 border-b flex justify-between items-center">
+      <div className="p-4 border-b flex flex-wrap justify-between items-center gap-2">
         <div className="flex items-center">
           <BarChart2 className="w-5 h-5 text-blue-600 mr-2" />
           <h3 className="text-lg font-semibold">{reportTitle || 'ハウス別生産性'}</h3>
@@ -107,19 +107,19 @@ const ProductivityReport = ({ data, reportTitle, quantityUnit = 'kg', areaUnit =
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   ハウス
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   収穫量 ({quantityUnit})
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   面積 ({areaUnit})
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   生産性 ({quantityUnit}/{areaUnit})
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   平均比
                 </th>
               </tr>
@@ -131,19 +131,19 @@ const ProductivityReport = ({ data, reportTitle, quantityUnit = 'kg', areaUnit =
                 
                 return (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{item.name}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500">
                       {item.totalQuantity.toFixed(1)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500">
                       {item.totalArea.toFixed(1)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500">
                       <span className="font-medium">{item.productivity.toFixed(2)}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm">
                       {averageProductivity > 0 && item.totalArea > 0 ? (
                         <span className={`px-2 py-1 rounded text-xs font-medium ${isAboveAverage ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                           {isAboveAverage ? '+' : ''}{comparedToAverage.toFixed(1)}%

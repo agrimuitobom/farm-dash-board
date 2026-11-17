@@ -1,20 +1,20 @@
 // src/components/Login.js
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [showResetForm, setShowResetForm] = useState(false);
   
-  const { login, signup, resetPassword } = useAuth();
+  // 新規登録（アカウント作成）はこの画面からはできない。
+  // アカウントは管理者が Firebase コンソールの Authentication で作成する
+  const { login, resetPassword } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,23 +24,13 @@ const Login = () => {
       return;
     }
 
-    if (!isLogin && !displayName.trim()) {
-      toast.error('表示名を入力してください');
-      return;
-    }
-
     setIsLoading(true);
 
     try {
-      if (isLogin) {
-        // ログイン画面は開こうとしたページの代わりに表示されているので、
-        // ログイン後はそのページ（例: 常時表示用の /display）がそのまま表示される
-        await login(email, password);
-        toast.success('ログインしました');
-      } else {
-        await signup(email, password, displayName);
-        toast.success('アカウントを作成しました');
-      }
+      // ログイン画面は開こうとしたページの代わりに表示されているので、
+      // ログイン後はそのページ（例: 常時表示用の /display）がそのまま表示される
+      await login(email, password);
+      toast.success('ログインしました');
     } catch (error) {
       console.error('認証エラー:', error);
       
@@ -54,11 +44,8 @@ const Login = () => {
         case 'auth/wrong-password':
           errorMessage = 'パスワードが間違っています';
           break;
-        case 'auth/email-already-in-use':
-          errorMessage = 'このメールアドレスは既に使用されています';
-          break;
-        case 'auth/weak-password':
-          errorMessage = 'パスワードは6文字以上にしてください';
+        case 'auth/invalid-credential':
+          errorMessage = 'メールアドレスまたはパスワードが間違っています';
           break;
         case 'auth/invalid-email':
           errorMessage = 'メールアドレスの形式が正しくありません';
@@ -161,7 +148,7 @@ const Login = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {isLogin ? 'ログイン' : 'アカウント作成'}
+            ログイン
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             西農圃場データダッシュボード
@@ -169,30 +156,6 @@ const Login = () => {
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {!isLogin && (
-              <div>
-                <label htmlFor="display-name" className="sr-only">
-                  表示名
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="display-name"
-                    name="displayName"
-                    type="text"
-                    autoComplete="name"
-                    required={!isLogin}
-                    className="appearance-none rounded-lg relative block w-full px-12 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm"
-                    placeholder="表示名"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-
             <div>
               <label htmlFor="email-address" className="sr-only">
                 メールアドレス
@@ -257,32 +220,19 @@ const Login = () => {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
-                '処理中...'
-              ) : (
-                isLogin ? 'ログイン' : 'アカウント作成'
-              )}
+              {isLoading ? '処理中...' : 'ログイン'}
             </button>
           </div>
 
           <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">アカウントは管理者が発行します</p>
             <button
               type="button"
               className="text-sm text-green-600 hover:text-green-500"
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => setShowResetForm(true)}
             >
-              {isLogin ? 'アカウントを作成する' : 'ログインする'}
+              パスワードを忘れた場合
             </button>
-
-            {isLogin && (
-              <button
-                type="button"
-                className="text-sm text-green-600 hover:text-green-500"
-                onClick={() => setShowResetForm(true)}
-              >
-                パスワードを忘れた場合
-              </button>
-            )}
           </div>
         </form>
       </div>

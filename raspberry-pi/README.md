@@ -5,6 +5,7 @@
 | `sensor.py` | DHT22 の温度・湿度を `environmental_data` に2分ごとに送る（10分間送信できなければ終了し、systemd が再起動する） |
 | `alert_monitor.py` | 全ハウスの最新データを見張り、閾値を外れたらアラートを作る（戻ったら自動解決）。グラフ用の「1時間ごとのまとめ」も作る |
 | `hourly_bundles.py` | 1時間ごとのまとめ（`environmental_hourly`）を作る処理。`alert_monitor.py` と同じフォルダに置く |
+| `cleanup.py` | 保存期間（既定30日）より古い `environmental_data` を、まとめへ書き写してから消す処理。`alert_monitor.py` と同じフォルダに置く |
 | `farm-sensor.service` / `farm-alert-monitor.service` | 上の2つを常時動かす systemd の設定 |
 | `round-display/` | 丸型タッチディスプレイに各ハウスのデータと天気予報を出す（使い方は `round-display/README.md`） |
 
@@ -48,12 +49,49 @@ cd ~/farm-sensor
 venv/bin/python alert_monitor.py --backfill-hours 168
 ```
 
+## 古い環境データの削除（cleanup.py）
+
+センサーは2分ごとに1件ずつ `environmental_data` に書き込むので、消さないと1ハウスあたり1年で約26万件たまり続ける。
+グラフ・CSV・まとめページは1時間ごとのまとめ（`environmental_hourly`）を読むので、古い元データは消してよい。
+
+- `alert_monitor.py` が1時間ごとに、**30日より古い** `environmental_data` を古い順に消す（起動の5分後から）
+- 消す前に、その計測値を必ず1時間ごとのまとめへ書き写す（書き写せなかった分は消さない）。
+  まとめを作り始める前の古いデータも、消すときにまとめへ移るので、**計測値は失われない**
+- 1日に消すのは **10,000件まで**。1件消すのに「読み取り1・削除1」かかるので、
+  無料枠（1日あたり 読み取り5万・削除2万）を使い切らないようにしている。
+  たまっている分は毎日少しずつ減る（4ハウスなら1日に増えるのは約2,900件なので、差し引き約7,000件ずつ減る）
+- 1時間ごとのまとめは消さない（1ハウス1年で 8,760 件）
+- その日に消した件数は `cleanup_state.json` に控える（サービスが再起動しても上限を超えないため）
+
+保存期間や上限を変えるときは、`farm-alert-monitor.service` の `[Service]` に書き足して
+`sudo systemctl daemon-reload && sudo systemctl restart farm-alert-monitor` する。
+
+```ini
+Environment=FARM_RETENTION_DAYS=60
+Environment=FARM_CLEANUP_MAX_PER_DAY=5000
+```
+
+`FARM_RETENTION_DAYS=0` にすると消さない。2日未満にはできない
+（まとめが無いときのグラフや、止まっていたハウスハブの取り込み直しが、直近24時間の元データを読むため）。
+
+手動でも動かせる:
+
+```bash
+cd ~/farm-sensor
+venv/bin/python cleanup.py --dry-run     # 消さずに、対象の件数だけ数える
+venv/bin/python cleanup.py               # 今日の上限まで消す
+venv/bin/python cleanup.py --max 15000   # 今日の残り枠に関係なく、この件数まで消す
+```
+
+**導入したとき**：まず `--dry-run` で件数を確かめるとよい。何もしなくても、サービスを再起動すれば自動で消し始める。
+
 ### 設置
 
 ```bash
 cd ~/farm-sensor
 curl -fsSL -O https://raw.githubusercontent.com/agrimuitobom/farm-dash-board/main/raspberry-pi/alert_monitor.py
 curl -fsSL -O https://raw.githubusercontent.com/agrimuitobom/farm-dash-board/main/raspberry-pi/hourly_bundles.py
+curl -fsSL -O https://raw.githubusercontent.com/agrimuitobom/farm-dash-board/main/raspberry-pi/cleanup.py
 curl -fsSL -O https://raw.githubusercontent.com/agrimuitobom/farm-dash-board/main/raspberry-pi/farm-alert-monitor.service
 sudo cp farm-alert-monitor.service /etc/systemd/system/
 sudo systemctl daemon-reload

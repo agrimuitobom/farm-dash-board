@@ -60,7 +60,69 @@ const TasksTable = ({ tasks, onView, onEdit, onDelete, onStatusChange, selectedI
   };
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <>
+      {/* スマホ: 横に長い表の代わりに、1件ずつカードで表示する */}
+      <div className="md:hidden space-y-3">
+        {selectable && tasks.length > 0 && (
+          <label className="flex items-center px-1 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={(e) => onToggleSelectAll(e.target.checked)}
+              className="h-5 w-5 mr-2"
+            />
+            表示中のタスクをすべて選択
+          </label>
+        )}
+        {tasks.map((task) => (
+          <div
+            key={task.id}
+            className={`rounded-lg shadow p-4 ${selectable && selectedIds.includes(task.id) ? 'bg-blue-50' : 'bg-white'}`}
+          >
+            <div className="flex items-start">
+              {selectable && (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(task.id)}
+                  onChange={() => onToggleSelect(task.id)}
+                  aria-label={`${task.title}を選択`}
+                  className="h-5 w-5 mt-0.5 mr-3 flex-shrink-0"
+                />
+              )}
+              <button
+                onClick={() => onView(task)}
+                className="flex-1 min-w-0 text-left text-base font-medium text-gray-900 break-words"
+              >
+                {task.title}
+              </button>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <span className={`px-2 leading-5 font-semibold rounded-full ${getStatusClasses(task.status)}`}>
+                {getStatusDisplay(task.status)}
+              </span>
+              <span className={`px-2 leading-5 font-semibold rounded-full ${getPriorityClasses(task.priority)}`}>
+                優先度 {getPriorityDisplay(task.priority)}
+              </span>
+              <span className="text-sm text-gray-600">期日 {new Date(task.dueDate).toLocaleDateString('ja-JP')}</span>
+            </div>
+            {(task.houseName || task.cropName || task.assignedTo) && (
+              <p className="mt-2 text-sm text-gray-500 break-words">
+                {[task.houseName, task.cropName, task.assignedTo && `担当: ${task.assignedTo}`].filter(Boolean).join(' ・ ')}
+              </p>
+            )}
+            <div className="mt-3 flex border-t border-gray-100 pt-2 -mb-1">
+              <button onClick={() => onView(task)} className="flex-1 py-2 text-sm font-medium text-gray-700">詳細</button>
+              <button onClick={() => onEdit(task)} className="flex-1 py-2 text-sm font-medium text-blue-600">編集</button>
+              <button onClick={() => onDelete(task.id)} className="flex-1 py-2 text-sm font-medium text-red-600">削除</button>
+            </div>
+          </div>
+        ))}
+        {tasks.length === 0 && (
+          <p className="bg-white rounded-lg shadow px-4 py-6 text-center text-sm text-gray-500">表示するタスクがありません</p>
+        )}
+      </div>
+
+    <div className="hidden md:block bg-white rounded-lg shadow overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
@@ -176,6 +238,7 @@ const TasksTable = ({ tasks, onView, onEdit, onDelete, onStatusChange, selectedI
         </tbody>
       </table>
     </div>
+    </>
   );
 };
 

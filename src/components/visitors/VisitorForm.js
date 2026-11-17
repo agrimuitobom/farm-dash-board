@@ -104,7 +104,7 @@ const VisitorForm = ({ visitor, onSave, onCancel }) => {
             name="visitorName"
             value={formData.visitorName}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             required
           />
         </div>
@@ -120,7 +120,7 @@ const VisitorForm = ({ visitor, onSave, onCancel }) => {
             name="company"
             value={formData.company}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
         
@@ -135,7 +135,7 @@ const VisitorForm = ({ visitor, onSave, onCancel }) => {
             name="contact"
             value={formData.contact}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
         
@@ -150,7 +150,7 @@ const VisitorForm = ({ visitor, onSave, onCancel }) => {
             name="visitDate"
             value={formData.visitDate}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             required
           />
         </div>
@@ -166,7 +166,7 @@ const VisitorForm = ({ visitor, onSave, onCancel }) => {
             name="visitTime"
             value={formData.visitTime}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
         
@@ -181,7 +181,7 @@ const VisitorForm = ({ visitor, onSave, onCancel }) => {
             name="purpose"
             value={formData.purpose}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
         
@@ -196,7 +196,7 @@ const VisitorForm = ({ visitor, onSave, onCancel }) => {
             name="area"
             value={formData.area}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
         
@@ -211,7 +211,7 @@ const VisitorForm = ({ visitor, onSave, onCancel }) => {
             name="host"
             value={formData.host}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -227,7 +227,7 @@ const VisitorForm = ({ visitor, onSave, onCancel }) => {
           rows="3"
           value={formData.notes}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="mt-1 block w-full p-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
         ></textarea>
       </div>
       
